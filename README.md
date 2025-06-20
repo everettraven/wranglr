@@ -78,9 +78,9 @@ For more examples, see the `examples/` directory.
 
 ### Output
 
-`synkr` currently only outputs JSON data for each configured source.
+`synkr` currently supports Markdown and JSON output formats.
 
-An example of the output (configured with a single source):
+An example of the JSON output (configured with a single source):
 
 ```json
 {
@@ -114,6 +114,32 @@ An example of the output (configured with a single source):
     }
   ]
 }
+```
+
+An example of the Markdown output:
+```md
+# GitHub - kubernetes-sigs/kube-api-linter
+## [Issue][open]: Feature: Allow configuration of custom enum markers for `maxlength` linter
+**URL**: https://github.com/kubernetes-sigs/kube-api-linter/issues/95
+**Author**: *everettraven*
+**Assignees**:
+
+
+
+In OpenShift, we have some custom markers that set enum values for a field and this results in the `maxlength` linter stating that a field/type alias should have a maximum length when using this custom marker instead of the standard `kubebuilder:validation:Enum` marker.
+
+While this particular case is OpenShift-specific, I think it is reasonable to make a generic way to extend this detection logic as there may be other vendors and/or projects that use their own custom markers for CRD generation.
+
+## [PullRequest][open]: markers: fix a bug when parsing expressions with commas present in value
+**URL**: https://github.com/kubernetes-sigs/kube-api-linter/pull/103
+**Author**: *everettraven*
+**Assignees**:
+
+`cncf-cla: yes` `size/M`
+
+Fixes #99
+
+Instead of splitting on solely the `,` character, we now do some more robust normalization for parsing of markers to handle the scenarios where a marker may specify an expression with attributes the have a `,` in their value.
 ```
 
 ### Help
