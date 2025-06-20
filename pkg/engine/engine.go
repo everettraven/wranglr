@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -11,6 +10,7 @@ import (
 
 type Engine struct {
 	sources []Source
+	printer Printer
 }
 
 type Source interface {
@@ -19,21 +19,25 @@ type Source interface {
 	Project() string
 }
 
-type output struct {
+type Printer interface {
+	Print(SourceResult) (string, error)
+}
+
+type SourceResult struct {
 	Source  string `json:"source"`
 	Project string `json:"project"`
 	Items   []any  `json:"items"`
 }
 
 func (e *Engine) Run(ctx context.Context, thread *starlark.Thread) error {
-	outputs := []output{}
+	outputs := []SourceResult{}
 	for _, source := range e.sources {
 		items, err := source.Fetch(ctx, thread)
 		if err != nil {
 			return err
 		}
 
-		outputs = append(outputs, output{
+		outputs = append(outputs, SourceResult{
 			Source:  source.Name(),
 			Project: source.Project(),
 			Items:   items,
@@ -42,12 +46,11 @@ func (e *Engine) Run(ctx context.Context, thread *starlark.Thread) error {
 
 	outs := []string{}
 	for _, output := range outputs {
-		outBytes, err := json.Marshal(output)
+		out, err := e.printer.Print(output)
 		if err != nil {
-			return fmt.Errorf("marshalling output %v to json: %w", output, err)
+			return fmt.Errorf("printing source result %v: %w", output, err)
 		}
-
-		outs = append(outs, string(outBytes))
+		outs = append(outs, out)
 	}
 
 	fmt.Print(strings.Join(outs, "\n"))
@@ -56,4 +59,8 @@ func (e *Engine) Run(ctx context.Context, thread *starlark.Thread) error {
 
 func (e *Engine) AddSource(source Source) {
 	e.sources = append(e.sources, source)
+}
+
+func (e *Engine) SetPrinter(printer Printer) {
+	e.printer = printer
 }

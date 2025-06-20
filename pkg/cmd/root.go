@@ -6,6 +6,7 @@ import (
 
 	"github.com/everettraven/synkr/pkg/builtins"
 	"github.com/everettraven/synkr/pkg/engine"
+	"github.com/everettraven/synkr/pkg/printers"
 	"github.com/spf13/cobra"
 	"go.starlark.net/starlark"
 	"go.starlark.net/syntax"
@@ -14,23 +15,25 @@ import (
 func NewSynkrCommand() *cobra.Command {
 	eng := &engine.Engine{}
 	var configFile string
+	var outputFormat string
 
 	cmd := &cobra.Command{
-		Use:   "synkr [-c configFile]",
+		Use:   "synkr",
 		Short: "synkr is an engine for syncing work items based on a Starlark configuration",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return run(cmd.Context(), eng, configFile)
+			return run(cmd.Context(), eng, configFile, outputFormat)
 		},
 	}
 
 	cmd.Flags().StringVarP(&configFile, "config", "c", "synkr.star", "configures the Starlark file to be processed for configuration")
+	cmd.Flags().StringVarP(&outputFormat, "output", "o", "markdown", "configures the output format. Allowed values are [markdown, json]")
 
 	return cmd
 }
 
-func run(ctx context.Context, eng *engine.Engine, configFile string) error {
-	thread, err := configureEngine(eng, configFile)
+func run(ctx context.Context, eng *engine.Engine, configFile, output string) error {
+	thread, err := configureEngine(eng, configFile, output)
 	if err != nil {
 		return fmt.Errorf("configuring engine: %w", err)
 	}
@@ -38,7 +41,16 @@ func run(ctx context.Context, eng *engine.Engine, configFile string) error {
 	return eng.Run(ctx, thread)
 }
 
-func configureEngine(eng *engine.Engine, configFile string) (*starlark.Thread, error) {
+func configureEngine(eng *engine.Engine, configFile, output string) (*starlark.Thread, error) {
+	switch output {
+	case "markdown":
+		eng.SetPrinter(&printers.Markdown{})
+	case "json":
+		eng.SetPrinter(&printers.JSON{})
+	default:
+		return nil, fmt.Errorf("unknown output format %q", output)
+	}
+
 	globals := starlark.StringDict{}
 
 	builtins.Github(globals, eng)
