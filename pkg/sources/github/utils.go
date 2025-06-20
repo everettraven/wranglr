@@ -11,15 +11,16 @@ import (
 func repoItemToStarlarkDict(item RepoItem) *starlark.Dict {
 	dict := &starlark.Dict{}
 
-	dict.SetKey(starlark.String("id"), starlark.MakeInt64(item.ID))
-	dict.SetKey(starlark.String("url"), starlark.String(item.URL))
-	dict.SetKey(starlark.String("author"), starlark.String(item.Author))
-	dict.SetKey(starlark.String("type"), starlark.String(item.Type))
-	dict.SetKey(starlark.String("title"), starlark.String(item.Title))
-	dict.SetKey(starlark.String("body"), starlark.String(item.Body))
-	dict.SetKey(starlark.String("state"), starlark.String(item.State))
-	dict.SetKey(starlark.String("labels"), starlark.NewList(stringArrayToStarlarkValueArray(item.Labels...)))
-	dict.SetKey(starlark.String("assignees"), starlark.NewList(stringArrayToStarlarkValueArray(item.Assignees...)))
+	// TODO: handle errors when setting keys
+	_ = dict.SetKey(starlark.String("id"), starlark.MakeInt64(item.ID))
+	_ = dict.SetKey(starlark.String("url"), starlark.String(item.URL))
+	_ = dict.SetKey(starlark.String("author"), starlark.String(item.Author))
+	_ = dict.SetKey(starlark.String("type"), starlark.String(item.Type))
+	_ = dict.SetKey(starlark.String("title"), starlark.String(item.Title))
+	_ = dict.SetKey(starlark.String("body"), starlark.String(item.Body))
+	_ = dict.SetKey(starlark.String("state"), starlark.String(item.State))
+	_ = dict.SetKey(starlark.String("labels"), starlark.NewList(stringArrayToStarlarkValueArray(item.Labels...)))
+	_ = dict.SetKey(starlark.String("assignees"), starlark.NewList(stringArrayToStarlarkValueArray(item.Assignees...)))
 
 	return dict
 }
