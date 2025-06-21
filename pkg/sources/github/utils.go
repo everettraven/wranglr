@@ -37,12 +37,7 @@ func stringArrayToStarlarkValueArray(in ...string) []starlark.Value {
 // TODO: Probably makes sense long term to have some sort of common function for
 // translating issues/prs into the RepoItem format.
 // Alternatively, just use the github.Issue format.
-//
-// TODO: Update this to allow for authenticated and unauthenticated access to the GH API.
-// Authenticated would allow access to private repositories, higher rate limits, and enterprise GH instances.
-// Unauthenticated would still be the default.
-func getPullRequestsForRepo(ctx context.Context, org, repo string) ([]RepoItem, error) {
-	client := github.NewClient(nil)
+func getPullRequestsForRepo(ctx context.Context, client *github.Client, org, repo string) ([]RepoItem, error) {
 	pullRequests, _, err := client.PullRequests.List(ctx, org, repo, nil)
 	if err != nil {
 		return nil, fmt.Errorf("fetching pull requests: %v", err)
@@ -118,8 +113,7 @@ func getPullRequestsForRepo(ctx context.Context, org, repo string) ([]RepoItem, 
 	return out, nil
 }
 
-func getIssuesForRepo(ctx context.Context, org, repo string) ([]RepoItem, error) {
-	client := github.NewClient(nil)
+func getIssuesForRepo(ctx context.Context, client *github.Client, org, repo string) ([]RepoItem, error) {
 	issues, _, err := client.Issues.ListByRepo(ctx, org, repo, nil)
 	if err != nil {
 		return nil, fmt.Errorf("fetching issues: %v", err)
