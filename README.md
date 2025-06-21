@@ -9,7 +9,7 @@ Me too. So I'm building `synkr`. Maybe it will help you as well.
 "Work items" is intentionally vague for now as we continue to identify what things developers need to
 keep track of in their day-to-day.
 
-Currently, `synkr` only has support for fetching public GitHub issues and pull requests.
+Currently, `synkr` only has support for fetching GitHub issues and pull requests.
 
 In the future, `synkr` might support fetching items from things like Jira, Google Docs, Slack, and beyond.
 
@@ -20,6 +20,7 @@ Long-term, the goal of `synkr` is to free engineers of the overhead associated w
 To install `synkr`, download a binary from the releases and add it to your `PATH`.
 
 If you have Go installed, you can also run:
+
 ```sh
 go install github.com/everettraven/synkr@latest
 ```
@@ -29,20 +30,26 @@ go install github.com/everettraven/synkr@latest
 ### Writing a `synkr` configuration file
 
 #### `synkr` configuration details
+
 `synkr` acts as an engine that processes configurations specified in a Starlark configuration file.
 
 By default, `synkr` will read a `synkr.star` file in the current directory. You can change the file it uses with the `--config` (alias `-c`) flag.
 
 `synkr` has a builtin for configuring individual GitHub sources like so:
+
 ```starlark
 github(org="kubernetes", repo="kubernetes", filters=[...])
 ```
+
 `filters` is an optional list of functions that follow the pattern:
+
 ```starlark
 def filter(item):
   ...
 ```
+
 where `item` is a dictionary. An example of an item passed to the function:
+
 ```json
 {
   "id": 3109989899,
@@ -62,7 +69,7 @@ The above example item does not currently have any labels or assignees, but the 
 #### Example `synkr` configuration file
 
 Let's build a quick configuration that allows us to fetch all issues and pull requests
-from https://github.com/kubernetes/kubernetes where the Kubernetes-SIG API Machinery needs
+from <https://github.com/kubernetes/kubernetes> where the Kubernetes-SIG API Machinery needs
 to provide some input (denoted by the label `sig/api-machinery`):
 
 ```starlark
@@ -74,6 +81,7 @@ def has_sig_api_machinery(item):
 
 github(org="kubernetes", repo="kubernetes", filters=[has_sig_api_machinery])
 ```
+
 For more examples, see the `examples/` directory.
 
 ### Output
@@ -117,6 +125,7 @@ An example of the JSON output (configured with a single source):
 ```
 
 An example of the Markdown output:
+
 ```md
 # GitHub - kubernetes-sigs/kube-api-linter
 ## [Issue][open]: Feature: Allow configuration of custom enum markers for `maxlength` linter
@@ -142,7 +151,42 @@ Fixes #99
 Instead of splitting on solely the `,` character, we now do some more robust normalization for parsing of markers to handle the scenarios where a marker may specify an expression with attributes the have a `,` in their value.
 ```
 
+### Sources
+
+#### GitHub
+
+In order to use the GitHub source, you use the `github` builtin function like so:
+
+```starlark
+github(org="org", repo="repo", filters?=[...])
+```
+
+`org` is the GitHub organization/user that the repository belongs to. Required.
+
+`repo` is the name of the repository. Required.
+
+`filters` is an optional list of functions that should be called by synkr when determining whether or not an issue or pull request should be included in the returned set.
+The functions are expected to accept a single parameter.
+That single parameter is a dictionary with the following keys and value types:
+
+- `id` (integer). The ID of the issue/pull request.
+- `url` (string). The HTML URL of the issue/pull request. Example: `https://github.com/everettraven/synkr/issues/4`.
+- `author` (string). The GitHub handle of the author of the issue/pull request. Example: `everettraven`.
+- `type` (string). The type of item this is, one of `Issue`, `PullRequest`.
+- `title` (string). The title of the issue/pull request.
+- `body` (string). The body of the issue/pull request.
+- `state` (string). The current state of the issue/pull request. Example: `open`/`closed`.
+- `labels` ([]string). The current set of labels on the issue/pull request.
+- `assignees` ([]string). The current set of assignees on the issue/pull request.
+
+##### Authentication
+
+By default, the GitHub source will use the unauthenticated GitHub API to fetch issues and pull requests from the configured repositories. This means you will only be able to access public repositories.
+
+In order to access private repositories, you can [create a fine-grained personal access token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token) and set the `SYNKR_GITHUB_TOKEN` environment variable with this token.
+
 ### Help
+
 ```sh
 
   synkr is an engine for syncing work items based on a Starlark configuration

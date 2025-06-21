@@ -3,7 +3,10 @@ package github
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"os"
 
+	"github.com/google/go-github/v71/github"
 	"go.starlark.net/starlark"
 )
 
@@ -11,6 +14,7 @@ type GitHub struct {
 	filters []starlark.Callable
 	org     string
 	repo    string
+	client  *github.Client
 }
 
 func New(org, repo string, filters ...starlark.Callable) *GitHub {
@@ -18,6 +22,7 @@ func New(org, repo string, filters ...starlark.Callable) *GitHub {
 		org:     org,
 		repo:    repo,
 		filters: filters,
+		client:  newGithubClient(),
 	}
 }
 
@@ -31,13 +36,13 @@ func (g *GitHub) Project() string {
 
 func (g *GitHub) Fetch(ctx context.Context, thread *starlark.Thread) ([]any, error) {
 	items := []RepoItem{}
-	issues, err := getIssuesForRepo(ctx, g.org, g.repo)
+	issues, err := getIssuesForRepo(ctx, g.client, g.org, g.repo)
 	if err != nil {
 		return nil, fmt.Errorf("fetching issues for GitHub repository %s/%s : %w", g.org, g.repo, err)
 	}
 	items = append(items, issues...)
 
-	pullRequests, err := getPullRequestsForRepo(ctx, g.org, g.repo)
+	pullRequests, err := getPullRequestsForRepo(ctx, g.client, g.org, g.repo)
 	if err != nil {
 		return nil, fmt.Errorf("fetching pull requests for GitHub repository %s/%s : %w", g.org, g.repo, err)
 	}
@@ -71,4 +76,13 @@ func (g *GitHub) filterItems(thread *starlark.Thread, items ...RepoItem) ([]any,
 	}
 
 	return outItems, nil
+}
+
+func newGithubClient() *github.Client {
+	token := os.Getenv("SYNKR_GITHUB_TOKEN")
+	if token == "" {
+		return github.NewClient(http.DefaultClient)
+	}
+
+	return github.NewClient(http.DefaultClient).WithAuthToken(token)
 }
