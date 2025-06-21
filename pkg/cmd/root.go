@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/everettraven/synkr/pkg/builtins"
 	"github.com/everettraven/synkr/pkg/engine"
@@ -26,7 +28,7 @@ func NewSynkrCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&configFile, "config", "c", "synkr.star", "configures the Starlark file to be processed for configuration")
+	cmd.Flags().StringVarP(&configFile, "config", "c", defaultConfigPath(), "configures the Starlark file to be processed for configuration. Defaults to $HOME/.config/synkr.star if possible to get your home directory. Otherwise it uses synkr.star in the current directory.")
 	cmd.Flags().StringVarP(&outputFormat, "output", "o", "markdown", "configures the output format. Allowed values are [markdown, json]")
 
 	return cmd
@@ -60,4 +62,16 @@ func configureEngine(eng *engine.Engine, configFile, output string) (*starlark.T
 	_, err := starlark.ExecFileOptions(&syntax.FileOptions{}, thread, configFile, nil, globals)
 
 	return thread, err
+}
+
+// defaultConfigPath returns the default configuration file path that should be used.
+// If we can get the users home directory we default to $HOME/.config/synkr.star, otherwise
+// we default to synkr.star
+func defaultConfigPath() string {
+    homeDir, err := os.UserHomeDir()
+    if err != nil {
+        return "synkr.star"
+    }
+
+    return filepath.Join(homeDir, ".config", "synkr.star")
 }
