@@ -33,7 +33,9 @@ go install github.com/everettraven/synkr@latest
 
 `synkr` acts as an engine that processes configurations specified in a Starlark configuration file.
 
-By default, `synkr` will read a `synkr.star` file in the current directory. You can change the file it uses with the `--config` (alias `-c`) flag.
+By default, `synkr` will read configuration from `$HOME/.config/synkr.star`. If `synkr` is unable to determine your home directory, it will fallback to `synkr.star` in the current directory.
+
+You can change the file it uses with the `--config` (alias `-c`) flag.
 
 `synkr` has a builtin for configuring individual GitHub sources like so:
 
