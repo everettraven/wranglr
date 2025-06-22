@@ -14,10 +14,11 @@ func githubBuiltinFunc(eng *engine.Engine) BuiltinFunc {
 	return func(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 		var filters *starlark.List
 		var priorities *starlark.List
+		var status starlark.Callable
 		var org starlark.String
 		var repo starlark.String
 
-		err := starlark.UnpackArgs("github", args, kwargs, "org", &org, "repo", &repo, "filters?", &filters, "priorities?", &priorities)
+		err := starlark.UnpackArgs("github", args, kwargs, "org", &org, "repo", &repo, "filters?", &filters, "priorities?", &priorities, "status?", &status)
 		if err != nil {
 			return nil, err
 		}
@@ -32,7 +33,7 @@ func githubBuiltinFunc(eng *engine.Engine) BuiltinFunc {
 			priorityCallables = callablesFromList(priorities)
 		}
 
-		ghSource := github.New(org.GoString(), repo.GoString(), filterCallables, priorityCallables)
+		ghSource := github.New(org.GoString(), repo.GoString(), filterCallables, priorityCallables, status)
 		eng.AddSource(ghSource)
 
 		return starlark.None, nil

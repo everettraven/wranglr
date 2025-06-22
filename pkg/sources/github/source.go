@@ -13,18 +13,20 @@ import (
 type GitHub struct {
 	filters    []starlark.Callable
 	priorities []starlark.Callable
+	status     starlark.Callable
 	org        string
 	repo       string
 	client     *github.Client
 }
 
-func New(org, repo string, filters []starlark.Callable, priorities []starlark.Callable) *GitHub {
+func New(org, repo string, filters []starlark.Callable, priorities []starlark.Callable, status starlark.Callable) *GitHub {
 	return &GitHub{
 		org:        org,
 		repo:       repo,
 		filters:    filters,
 		client:     newGithubClient(),
 		priorities: priorities,
+		status:     status,
 	}
 }
 
@@ -57,7 +59,14 @@ func (g *GitHub) Fetch(ctx context.Context, thread *starlark.Thread) ([]any, err
 
 	items, err = g.setPriority(thread, items...)
 	if err != nil {
-		return nil, fmt.Errorf("setting item priorites for GitHub repository %s/%s: %w", g.org, g.repo, err)
+		return nil, fmt.Errorf("setting item priorities for GitHub repository %s/%s: %w", g.org, g.repo, err)
+	}
+
+	if g.status != nil {
+		items, err = g.setStatus(thread, items...)
+		if err != nil {
+			return nil, fmt.Errorf("setting item statuses for GitHub repository %s/%s: %w", g.org, g.repo, err)
+		}
 	}
 
 	return repoItemSliceToAnySlice(items...), nil
@@ -111,6 +120,23 @@ func (g *GitHub) setPriority(thread *starlark.Thread, items ...RepoItem) ([]Repo
 		}
 
 		item.Priority = itemScore
+		out = append(out, item)
+	}
+
+	return out, nil
+}
+
+func (g *GitHub) setStatus(thread *starlark.Thread, items ...RepoItem) ([]RepoItem, error) {
+	out := []RepoItem{}
+
+	for _, item := range items {
+		val, err := starlark.Call(thread, g.status, starlark.Tuple{repoItemToStarlarkDict(item)}, nil)
+		if err != nil {
+			return nil, fmt.Errorf("calling status function %q: %w", g.status.Name(), err)
+		}
+
+		status, _ := starlark.AsString(val)
+		item.Status = status
 		out = append(out, item)
 	}
 
