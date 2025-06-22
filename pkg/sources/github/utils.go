@@ -12,8 +12,6 @@ func repoItemToStarlarkDict(item RepoItem) *starlark.Dict {
 	dict := &starlark.Dict{}
 
 	// TODO: handle errors when setting keys
-	_ = dict.SetKey(starlark.String("id"), starlark.MakeInt64(item.ID))
-	_ = dict.SetKey(starlark.String("url"), starlark.String(item.URL))
 	_ = dict.SetKey(starlark.String("author"), starlark.String(item.Author))
 	_ = dict.SetKey(starlark.String("type"), starlark.String(item.Type))
 	_ = dict.SetKey(starlark.String("title"), starlark.String(item.Title))

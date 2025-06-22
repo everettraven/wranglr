@@ -37,36 +37,9 @@ By default, `synkr` will read configuration from `$HOME/.config/synkr.star`. If 
 
 You can change the file it uses with the `--config` (alias `-c`) flag.
 
-`synkr` has a builtin for configuring individual GitHub sources like so:
+`synkr` has builtin functions that can be used to configure individual sources. Currently there is support for:
 
-```starlark
-github(org="kubernetes", repo="kubernetes", filters=[...])
-```
-
-`filters` is an optional list of functions that follow the pattern:
-
-```starlark
-def filter(item):
-  ...
-```
-
-where `item` is a dictionary. An example of an item passed to the function:
-
-```json
-{
-  "id": 3109989899,
-  "url": "https://github.com/kubernetes-sigs/kube-api-linter/issues/95",
-  "author": "everettraven",
-  "labels": [],
-  "type": "Issue",
-  "assignees": [],
-  "title": "Feature: Allow configuration of custom enum markers for `maxlength` linter",
-  "body": "In OpenShift, we have some custom markers that set enum values for a field and this results in the `maxlength` linter stating that a field/type alias should have a maximum length when using this custom marker instead of the standard `kubebuilder:validation:Enum` marker.\n\nWhile this particular case is OpenShift-specific, I think it is reasonable to make a generic way to extend this detection logic as there may be other vendors and/or projects that use their own custom markers for CRD generation.",
-  "state": "open"
-}
-```
-
-The above example item does not currently have any labels or assignees, but the respective fields would be populated in the item with the names of labels on the issue and the GitHub handles of assignees respectively for issues/pull requests that do have these fields populated.
+- [GitHub](#github)
 
 #### Example `synkr` configuration file
 
@@ -106,7 +79,8 @@ An example of the JSON output (configured with a single source):
       "assignees": [],
       "title": "Feature: Allow configuration of custom enum markers for `maxlength` linter",
       "body": "In OpenShift, we have some custom markers that set enum values for a field and this results in the `maxlength` linter stating that a field/type alias should have a maximum length when using this custom marker instead of the standard `kubebuilder:validation:Enum` marker.\n\nWhile this particular case is OpenShift-specific, I think it is reasonable to make a generic way to extend this detection logic as there may be other vendors and/or projects that use their own custom markers for CRD generation.",
-      "state": "open"
+      "state": "open",
+      "priority": 0
     },
     {
       "id": 2590503547,
@@ -120,7 +94,8 @@ An example of the JSON output (configured with a single source):
       "assignees": [],
       "title": "markers: fix a bug when parsing expressions with commas present in value",
       "body": "Fixes #99 \r\n\r\nInstead of splitting on solely the `,` character, we now do some more robust normalization for parsing of markers to handle the scenarios where a marker may specify an expression with attributes the have a `,` in their value.",
-      "state": "open"
+      "state": "open",
+      "priority": 0
     }
   ]
 }
@@ -160,19 +135,18 @@ Instead of splitting on solely the `,` character, we now do some more robust nor
 In order to use the GitHub source, you use the `github` builtin function like so:
 
 ```starlark
-github(org="org", repo="repo", filters?=[...])
+github(org="org", repo="repo", filters?=[...], priorities?=[...])
 ```
 
 `org` is the GitHub organization/user that the repository belongs to. Required.
 
 `repo` is the name of the repository. Required.
 
-`filters` is an optional list of functions that should be called by synkr when determining whether or not an issue or pull request should be included in the returned set.
-The functions are expected to accept a single parameter.
-That single parameter is a dictionary with the following keys and value types:
+`filters` is an optional list of functions that should be called by `synkr` when determining whether or not an issue or pull request should be included in the returned set.
+The functions are expected to accept a single parameter and return a "truthy" value (i.e `True` / `False` state should be able to be determined from the returned value).
+A return value reflective of the `True` state means that an item should be included in the output.
+The parameter passed to the functions is a dictionary with the following keys and value types:
 
-- `id` (integer). The ID of the issue/pull request.
-- `url` (string). The HTML URL of the issue/pull request. Example: `https://github.com/everettraven/synkr/issues/4`.
 - `author` (string). The GitHub handle of the author of the issue/pull request. Example: `everettraven`.
 - `type` (string). The type of item this is, one of `Issue`, `PullRequest`.
 - `title` (string). The title of the issue/pull request.
@@ -180,6 +154,9 @@ That single parameter is a dictionary with the following keys and value types:
 - `state` (string). The current state of the issue/pull request. Example: `open`/`closed`.
 - `labels` ([]string). The current set of labels on the issue/pull request.
 - `assignees` ([]string). The current set of assignees on the issue/pull request.
+
+`priorities` is an optional list of functions that should be called by `synkr` when determining the priority score to assign to an issue or pull request.
+The functions are expected to accept a single parameter (the same parameter as `filters` functions) and return an integer value to add to the item's priority score.
 
 ##### Authentication
 
