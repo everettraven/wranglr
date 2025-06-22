@@ -19,4 +19,5 @@ type RepoItem struct {
 	Title     string       `json:"title"`
 	Body      string       `json:"body"`
 	State     string       `json:"state"`
+	Priority  int          `json:"priority"`
 }

@@ -11,18 +11,20 @@ import (
 )
 
 type GitHub struct {
-	filters []starlark.Callable
-	org     string
-	repo    string
-	client  *github.Client
+	filters    []starlark.Callable
+	priorities []starlark.Callable
+	org        string
+	repo       string
+	client     *github.Client
 }
 
-func New(org, repo string, filters ...starlark.Callable) *GitHub {
+func New(org, repo string, filters []starlark.Callable, priorities []starlark.Callable) *GitHub {
 	return &GitHub{
-		org:     org,
-		repo:    repo,
-		filters: filters,
-		client:  newGithubClient(),
+		org:        org,
+		repo:       repo,
+		filters:    filters,
+		client:     newGithubClient(),
+		priorities: priorities,
 	}
 }
 
@@ -48,11 +50,21 @@ func (g *GitHub) Fetch(ctx context.Context, thread *starlark.Thread) ([]any, err
 	}
 	items = append(items, pullRequests...)
 
-	return g.filterItems(thread, items...)
+	items, err = g.filterItems(thread, items...)
+	if err != nil {
+		return nil, fmt.Errorf("filtering items for GitHub repository %s/%s: %w", g.org, g.repo, err)
+	}
+
+	items, err = g.setPriority(thread, items...)
+	if err != nil {
+		return nil, fmt.Errorf("setting item priorites for GitHub repository %s/%s: %w", g.org, g.repo, err)
+	}
+
+	return repoItemSliceToAnySlice(items...), nil
 }
 
-func (g *GitHub) filterItems(thread *starlark.Thread, items ...RepoItem) ([]any, error) {
-	outItems := []any{}
+func (g *GitHub) filterItems(thread *starlark.Thread, items ...RepoItem) ([]RepoItem, error) {
+	outItems := []RepoItem{}
 
 	for _, item := range items {
 		include := true
@@ -78,6 +90,33 @@ func (g *GitHub) filterItems(thread *starlark.Thread, items ...RepoItem) ([]any,
 	return outItems, nil
 }
 
+func (g *GitHub) setPriority(thread *starlark.Thread, items ...RepoItem) ([]RepoItem, error) {
+	out := []RepoItem{}
+
+	for _, item := range items {
+		itemScore := 0
+		for _, priorityFunc := range g.priorities {
+			val, err := starlark.Call(thread, priorityFunc, starlark.Tuple{repoItemToStarlarkDict(item)}, nil)
+			if err != nil {
+				return nil, fmt.Errorf("calling priority function %q: %w", priorityFunc.Name(), err)
+			}
+
+			score := 0
+			err = starlark.AsInt(val, &score)
+			if err != nil {
+				return nil, fmt.Errorf("could not use return value of priority function %q as an integer: %w", priorityFunc.Name(), err)
+			}
+
+			itemScore += score
+		}
+
+		item.Priority = itemScore
+		out = append(out, item)
+	}
+
+	return out, nil
+}
+
 func newGithubClient() *github.Client {
 	token := os.Getenv("SYNKR_GITHUB_TOKEN")
 	if token == "" {
@@ -85,4 +124,14 @@ func newGithubClient() *github.Client {
 	}
 
 	return github.NewClient(http.DefaultClient).WithAuthToken(token)
+}
+
+func repoItemSliceToAnySlice(items ...RepoItem) []any {
+	out := []any{}
+
+	for _, item := range items {
+		out = append(out, item)
+	}
+
+	return out
 }
