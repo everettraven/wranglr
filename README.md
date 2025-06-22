@@ -135,7 +135,7 @@ Instead of splitting on solely the `,` character, we now do some more robust nor
 In order to use the GitHub source, you use the `github` builtin function like so:
 
 ```starlark
-github(org="org", repo="repo", filters?=[...], priorities?=[...])
+github(org="org", repo="repo", filters?=[...], priorities?=[...], status?={function})
 ```
 
 `org` is the GitHub organization/user that the repository belongs to. Required.
@@ -157,6 +157,10 @@ The parameter passed to the functions is a dictionary with the following keys an
 
 `priorities` is an optional list of functions that should be called by `synkr` when determining the priority score to assign to an issue or pull request.
 The functions are expected to accept a single parameter (the same parameter as `filters` functions) and return an integer value to add to the item's priority score.
+
+`status` is an optional function that should be called by `synkr` when determining the "status" to assign to an issue or pull request.
+"status" is a distinctly different value than `state`, as it represents an arbitrary status defined by you the user instead of GitHub's perceived state of the item.
+The function is expected to accept a single parameter (the same parameter as above) and return a string value to set the item's status to.
 
 ##### Authentication
 
