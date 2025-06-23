@@ -10,6 +10,7 @@ import (
 	"github.com/everettraven/synkr/pkg/engine"
 	"github.com/everettraven/synkr/pkg/printers"
 	"github.com/spf13/cobra"
+	"go.starlark.net/lib/time"
 	"go.starlark.net/starlark"
 	"go.starlark.net/syntax"
 )
@@ -54,6 +55,7 @@ func configureEngine(eng *engine.Engine, configFile, output string) (*starlark.T
 	}
 
 	globals := starlark.StringDict{}
+	starlark.Universe["time"] = time.Module
 
 	builtins.Github(globals, eng)
 
