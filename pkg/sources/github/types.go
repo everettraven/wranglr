@@ -21,4 +21,13 @@ type RepoItem struct {
 	State     string       `json:"state"`
 	Priority  int          `json:"priority"`
 	Status    string       `json:"status"`
+	Created   string       `json:"created"`
+	Updated   string       `json:"updated"`
+	Comments  int          `json:"comments"`
+	Milestone string       `json:"milestone"`
+	Mentions  []string     `json:"mentions"`
+
+	// Only populated on PullRequests
+	RequestedReviewers []string `json:"requestedReviewers"`
+	Draft              bool     `json:"draft"`
 }

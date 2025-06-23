@@ -135,7 +135,7 @@ Instead of splitting on solely the `,` character, we now do some more robust nor
 In order to use the GitHub source, you use the `github` builtin function like so:
 
 ```starlark
-github(org="org", repo="repo", filters?=[...], priorities?=[...], status?={function})
+github(org="org", repo="repo", filters?=[...], priorities?=[...], status?={function}, include_mentions?={boolean})
 ```
 
 `org` is the GitHub organization/user that the repository belongs to. Required.
@@ -154,6 +154,13 @@ The parameter passed to the functions is a dictionary with the following keys an
 - `state` (string). The current state of the issue/pull request. Example: `open`/`closed`.
 - `labels` ([]string). The current set of labels on the issue/pull request.
 - `assignees` ([]string). The current set of assignees on the issue/pull request.
+- `created` (string). The creation timestamp of the issue/pull request. Example: `2025-04-10 18:34:13 +0000 UTC`
+- `updated` (string). The timestamp of the last time the issue/pull request was updated.
+- `comments` (int). The number of comments on the issue/pull request.
+- `milestone` (string). The title of the milestone the issue/pull request is included in.
+- `mentions` ([]string). The GitHub handles of users that are mentioned in the issue/pull request comments. Only populated if `include_mentions` is set to `True` in the `github` builtin function.
+- `requestedReviewers` ([]string). The GitHub handles of users whose reviews were explicitly requested on a pull request. Only populated on items where `type` is `PullRequest`.
+- `draft` (boolean). Whether or not the pull request is a draft. Only populated on items where `type` is `PullRequest`
 
 `priorities` is an optional list of functions that should be called by `synkr` when determining the priority score to assign to an issue or pull request.
 The functions are expected to accept a single parameter (the same parameter as `filters` functions) and return an integer value to add to the item's priority score.
@@ -161,6 +168,10 @@ The functions are expected to accept a single parameter (the same parameter as `
 `status` is an optional function that should be called by `synkr` when determining the "status" to assign to an issue or pull request.
 "status" is a distinctly different value than `state`, as it represents an arbitrary status defined by you the user instead of GitHub's perceived state of the item.
 The function is expected to accept a single parameter (the same parameter as above) and return a string value to set the item's status to.
+
+`include_mentions` is an optional setting to enable `synkr` to determine the mentions associated with a given item. This is a boolean value and defaults to `False`.
+When set to `True`, `synkr` will fetch all comments associated with an issue/pull request and parse out any mentions. This is an expensive operation as this needs an API request to be done individually for
+each issue/pull request. You can easily hit the unauthenticated rate limit of 60 requests per hour when extracting mentions. The authenticated rate limit is 5000 requests per hour, but is still possible to hit if you are not using this configuration option sparingly.
 
 ##### Authentication
 

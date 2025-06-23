@@ -11,22 +11,24 @@ import (
 )
 
 type GitHub struct {
-	filters    []starlark.Callable
-	priorities []starlark.Callable
-	status     starlark.Callable
-	org        string
-	repo       string
-	client     *github.Client
+	filters         []starlark.Callable
+	priorities      []starlark.Callable
+	status          starlark.Callable
+	org             string
+	repo            string
+	client          *github.Client
+	includeMentions bool
 }
 
-func New(org, repo string, filters []starlark.Callable, priorities []starlark.Callable, status starlark.Callable) *GitHub {
+func New(org, repo string, filters []starlark.Callable, priorities []starlark.Callable, status starlark.Callable, includeMentions bool) *GitHub {
 	return &GitHub{
-		org:        org,
-		repo:       repo,
-		filters:    filters,
-		client:     newGithubClient(),
-		priorities: priorities,
-		status:     status,
+		org:             org,
+		repo:            repo,
+		filters:         filters,
+		client:          newGithubClient(),
+		priorities:      priorities,
+		status:          status,
+		includeMentions: includeMentions,
 	}
 }
 
@@ -40,13 +42,13 @@ func (g *GitHub) Project() string {
 
 func (g *GitHub) Fetch(ctx context.Context, thread *starlark.Thread) ([]any, error) {
 	items := []RepoItem{}
-	issues, err := getIssuesForRepo(ctx, g.client, g.org, g.repo)
+	issues, err := getIssuesForRepo(ctx, g.client, g.org, g.repo, g.includeMentions)
 	if err != nil {
 		return nil, fmt.Errorf("fetching issues for GitHub repository %s/%s : %w", g.org, g.repo, err)
 	}
 	items = append(items, issues...)
 
-	pullRequests, err := getPullRequestsForRepo(ctx, g.client, g.org, g.repo)
+	pullRequests, err := getPullRequestsForRepo(ctx, g.client, g.org, g.repo, g.includeMentions)
 	if err != nil {
 		return nil, fmt.Errorf("fetching pull requests for GitHub repository %s/%s : %w", g.org, g.repo, err)
 	}
