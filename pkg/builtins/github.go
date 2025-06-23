@@ -17,8 +17,9 @@ func githubBuiltinFunc(eng *engine.Engine) BuiltinFunc {
 		var status starlark.Callable
 		var org starlark.String
 		var repo starlark.String
+		var includeMentions starlark.Bool
 
-		err := starlark.UnpackArgs("github", args, kwargs, "org", &org, "repo", &repo, "filters?", &filters, "priorities?", &priorities, "status?", &status)
+		err := starlark.UnpackArgs("github", args, kwargs, "org", &org, "repo", &repo, "filters?", &filters, "priorities?", &priorities, "status?", &status, "include_mentions?", &includeMentions)
 		if err != nil {
 			return nil, err
 		}
@@ -33,7 +34,7 @@ func githubBuiltinFunc(eng *engine.Engine) BuiltinFunc {
 			priorityCallables = callablesFromList(priorities)
 		}
 
-		ghSource := github.New(org.GoString(), repo.GoString(), filterCallables, priorityCallables, status)
+		ghSource := github.New(org.GoString(), repo.GoString(), filterCallables, priorityCallables, status, bool(includeMentions))
 		eng.AddSource(ghSource)
 
 		return starlark.None, nil

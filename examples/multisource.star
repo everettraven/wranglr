@@ -34,4 +34,4 @@ def set_status(item):
   return ""
 
 github(org="kubernetes-sigs", repo="kube-api-linter", filters=[authored_by_not_me], priorities=[priority_help_wanted], status=set_status)
-github(org="kubernetes-sigs", repo="crdify", filters=[authored_by_not_me])
+github(org="kubernetes-sigs", repo="crdify", filters=[authored_by_not_me], include_mentions=True)
