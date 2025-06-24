@@ -61,7 +61,7 @@ func configureEngine(eng *engine.Engine, configFile, output string) (*starlark.T
 
 	thread := &starlark.Thread{Name: "main"}
 
-	_, err := starlark.ExecFileOptions(&syntax.FileOptions{}, thread, configFile, nil, globals)
+	_, err := starlark.ExecFileOptions(&syntax.FileOptions{TopLevelControl: true}, thread, configFile, nil, globals)
 
 	return thread, err
 }
@@ -70,10 +70,10 @@ func configureEngine(eng *engine.Engine, configFile, output string) (*starlark.T
 // If we can get the users home directory we default to $HOME/.config/synkr.star, otherwise
 // we default to synkr.star
 func defaultConfigPath() string {
-    homeDir, err := os.UserHomeDir()
-    if err != nil {
-        return "synkr.star"
-    }
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "synkr.star"
+	}
 
-    return filepath.Join(homeDir, ".config", "synkr.star")
+	return filepath.Join(homeDir, ".config", "synkr.star")
 }
