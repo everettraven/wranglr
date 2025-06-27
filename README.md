@@ -61,7 +61,7 @@ For more examples, see the `examples/` directory.
 
 ### Output
 
-`synkr` currently supports Markdown and JSON output formats.
+`synkr` currently supports Markdown, JSON and web output formats.
 
 An example of the JSON output (configured with a single source):
 
@@ -128,6 +128,8 @@ Fixes #99
 Instead of splitting on solely the `,` character, we now do some more robust normalization for parsing of markers to handle the scenarios where a marker may specify an expression with attributes the have a `,` in their value.
 ```
 
+The web output starts an HTTP server on an available localhost port to serve a single page application that shows the data in a paginated table that can be searched and sorted.
+
 ### Sources
 
 #### GitHub
@@ -182,26 +184,25 @@ In order to access private repositories, you can [create a fine-grained personal
 ### Help
 
 ```sh
-
   synkr is an engine for syncing work items based on a Starlark configuration
 
   USAGE
 
 
-    synkr [command] [-c configFile] [--flags]  
+    synkr [command] [--flags]  
 
 
   COMMANDS
 
-    completion [command]      Generate the autocompletion script for the specified shell
-    help [command] [--flags]  Help about any command
+    completion [command]  Generate the autocompletion script for the specified shell
+    help [command]        Help about any command
 
   FLAGS
 
-     -c --config              Configures the Starlark file to be processed for configuration (synkr.star)
-     -h --help                Help for synkr
-     -v --version             Version for synkr
-
+     -c --config          Configures the Starlark file to be processed for configuration. Defaults to $HOME/.config/synkr.star if possible to get your home directory. Otherwise it uses synkr.star in the current directory. (synkr.star)
+     -h --help            Help for synkr
+     -o --output          Configures the output format. Allowed values are [markdown, json, web] (markdown)
+     -v --version         Version for synkr
 ```
 
 ## Contributing

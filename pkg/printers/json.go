@@ -2,17 +2,23 @@ package printers
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/everettraven/synkr/pkg/engine"
 )
 
 type JSON struct{}
 
-func (j *JSON) Print(result engine.SourceResult) (string, error) {
-	outBytes, err := json.Marshal(result)
-	if err != nil {
-		return "", err
+func (j *JSON) Print(results ...engine.SourceResult) error {
+	outBytes := []byte{}
+	for _, result := range results {
+		out, err := json.Marshal(result)
+		if err != nil {
+			return err
+		}
+		outBytes = append(outBytes, out...)
 	}
 
-	return string(outBytes), nil
+	fmt.Println(string(outBytes))
+	return nil
 }

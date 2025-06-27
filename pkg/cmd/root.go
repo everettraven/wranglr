@@ -30,7 +30,7 @@ func NewSynkrCommand() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&configFile, "config", "c", defaultConfigPath(), "configures the Starlark file to be processed for configuration. Defaults to $HOME/.config/synkr.star if possible to get your home directory. Otherwise it uses synkr.star in the current directory.")
-	cmd.Flags().StringVarP(&outputFormat, "output", "o", "markdown", "configures the output format. Allowed values are [markdown, json]")
+	cmd.Flags().StringVarP(&outputFormat, "output", "o", "markdown", "configures the output format. Allowed values are [markdown, json, web]")
 
 	return cmd
 }
@@ -50,6 +50,8 @@ func configureEngine(eng *engine.Engine, configFile, output string) (*starlark.T
 		eng.SetPrinter(&printers.Markdown{})
 	case "json":
 		eng.SetPrinter(&printers.JSON{})
+	case "web":
+		eng.SetPrinter(&printers.Web{})
 	default:
 		return nil, fmt.Errorf("unknown output format %q", output)
 	}

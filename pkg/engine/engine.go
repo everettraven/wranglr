@@ -3,7 +3,6 @@ package engine
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"go.starlark.net/starlark"
 )
@@ -20,7 +19,7 @@ type Source interface {
 }
 
 type Printer interface {
-	Print(SourceResult) (string, error)
+	Print(...SourceResult) error
 }
 
 type SourceResult struct {
@@ -44,16 +43,11 @@ func (e *Engine) Run(ctx context.Context, thread *starlark.Thread) error {
 		})
 	}
 
-	outs := []string{}
-	for _, output := range outputs {
-		out, err := e.printer.Print(output)
-		if err != nil {
-			return fmt.Errorf("printing source result %v: %w", output, err)
-		}
-		outs = append(outs, out)
+	err := e.printer.Print(outputs...)
+	if err != nil {
+		return fmt.Errorf("printing source results: %w", err)
 	}
 
-	fmt.Print(strings.Join(outs, "\n"))
 	return nil
 }
 

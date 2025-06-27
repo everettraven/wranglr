@@ -10,7 +10,19 @@ import (
 
 type Markdown struct{}
 
-func (md *Markdown) Print(result engine.SourceResult) (string, error) {
+func (md *Markdown) Print(results ...engine.SourceResult) error {
+	for _, result := range results {
+		out, err := md.PrintResult(result)
+		if err != nil {
+			return err
+		}
+		fmt.Println(out)
+	}
+
+	return nil
+}
+
+func (md *Markdown) PrintResult(result engine.SourceResult) (string, error) {
 	var out strings.Builder
 	out.WriteString(fmt.Sprintf("# %s - %s\n", result.Source, result.Project))
 
