@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/everettraven/synkr/pkg/engine"
-	"github.com/everettraven/synkr/pkg/sources/github"
+	"github.com/everettraven/synkr/pkg/plugins"
+	"github.com/everettraven/synkr/pkg/plugins/github"
 )
 
 type Markdown struct{}
 
-func (md *Markdown) Print(results ...engine.SourceResult) error {
+func (md *Markdown) Print(results ...plugins.SourceResult) error {
 	for _, result := range results {
 		out, err := md.PrintResult(result)
 		if err != nil {
@@ -22,7 +22,7 @@ func (md *Markdown) Print(results ...engine.SourceResult) error {
 	return nil
 }
 
-func (md *Markdown) PrintResult(result engine.SourceResult) (string, error) {
+func (md *Markdown) PrintResult(result plugins.SourceResult) (string, error) {
 	var out strings.Builder
 	out.WriteString(fmt.Sprintf("# %s - %s\n", result.Source, result.Project))
 

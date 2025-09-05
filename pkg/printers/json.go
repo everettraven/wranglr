@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/everettraven/synkr/pkg/engine"
+	"github.com/everettraven/synkr/pkg/plugins"
 )
 
 type JSON struct{}
 
-func (j *JSON) Print(results ...engine.SourceResult) error {
+func (j *JSON) Print(results ...plugins.SourceResult) error {
 	outBytes := []byte{}
 	for _, result := range results {
 		out, err := json.Marshal(result)

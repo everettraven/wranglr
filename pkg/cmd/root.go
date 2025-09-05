@@ -6,17 +6,18 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/everettraven/synkr/pkg/builtins"
 	"github.com/everettraven/synkr/pkg/engine"
+	"github.com/everettraven/synkr/pkg/plugins"
 	"github.com/everettraven/synkr/pkg/printers"
 	"github.com/spf13/cobra"
 	"go.starlark.net/lib/time"
 	"go.starlark.net/starlark"
 	"go.starlark.net/syntax"
+
+	_ "github.com/everettraven/synkr/pkg/plugins/registration"
 )
 
 func NewSynkrCommand() *cobra.Command {
-	eng := &engine.Engine{}
 	var configFile string
 	var outputFormat string
 
@@ -25,7 +26,7 @@ func NewSynkrCommand() *cobra.Command {
 		Short: "synkr is an engine for syncing work items based on a Starlark configuration",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return run(cmd.Context(), eng, configFile, outputFormat)
+			return run(cmd.Context(), configFile, outputFormat)
 		},
 	}
 
@@ -35,31 +36,46 @@ func NewSynkrCommand() *cobra.Command {
 	return cmd
 }
 
-func run(ctx context.Context, eng *engine.Engine, configFile, output string) error {
-	thread, err := configureEngine(eng, configFile, output)
+func run(ctx context.Context, configFile, output string) error {
+	plugins := plugins.Plugins()
+	thread, err := configureThread(configFile, plugins...)
 	if err != nil {
-		return fmt.Errorf("configuring engine: %w", err)
+		return fmt.Errorf("configuring thread: %w", err)
 	}
 
-	return eng.Run(ctx, thread)
+	eng := engine.New(plugins...)
+
+	results, err := eng.Run(ctx, thread)
+	if err != nil {
+		return fmt.Errorf("running engine: %w", err)
+	}
+
+	return printResults(output, results...)
 }
 
-func configureEngine(eng *engine.Engine, configFile, output string) (*starlark.Thread, error) {
+func printResults(output string, results ...plugins.SourceResult) error {
 	switch output {
-	case "markdown":
-		eng.SetPrinter(&printers.Markdown{})
 	case "json":
-		eng.SetPrinter(&printers.JSON{})
+		out := &printers.JSON{}
+		return out.Print(results...)
+	case "markdown":
+		out := &printers.Markdown{}
+		return out.Print(results...)
 	case "web":
-		eng.SetPrinter(&printers.Web{})
+		out := &printers.Web{}
+		return out.Print(results...)
 	default:
-		return nil, fmt.Errorf("unknown output format %q", output)
+		return fmt.Errorf("unknown output format %q", output)
 	}
+}
 
+func configureThread(configFile string, plugins ...plugins.Plugin) (*starlark.Thread, error) {
 	globals := starlark.StringDict{}
 	starlark.Universe["time"] = time.Module
 
-	builtins.Github(globals, eng)
+	for _, plugin := range plugins {
+		plugin.RegisterBuiltins(globals)
+	}
 
 	thread := &starlark.Thread{Name: "main"}
 

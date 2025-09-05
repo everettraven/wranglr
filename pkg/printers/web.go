@@ -7,7 +7,7 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/everettraven/synkr/pkg/engine"
+	"github.com/everettraven/synkr/pkg/plugins"
 )
 
 //go:embed web.html
@@ -15,11 +15,11 @@ var webpage embed.FS
 
 type Web struct{}
 
-func (w *Web) Print(results ...engine.SourceResult) error {
+func (w *Web) Print(results ...plugins.SourceResult) error {
 	return serve(results...)
 }
 
-func serve(results ...engine.SourceResult) error {
+func serve(results ...plugins.SourceResult) error {
 	data, err := json.Marshal(results)
 	if err != nil {
 		return fmt.Errorf("marshalling results to json: %w", err)
