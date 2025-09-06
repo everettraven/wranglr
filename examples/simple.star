@@ -1,1 +1,1 @@
-github("everettraven", "synkr")
+github(repo="everettraven/synkr")

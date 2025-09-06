@@ -4,35 +4,28 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
-	"strconv"
-	"strings"
 
+	"github.com/cli/cli/v2/pkg/search"
 	"github.com/everettraven/synkr/pkg/plugins"
-	"github.com/google/go-github/v71/github"
 	"go.starlark.net/starlark"
 )
 
 type Source struct {
-	filters          []starlark.Callable
-	priorities       []starlark.Callable
-	status           starlark.Callable
-	org              string
-	repo             string
-	client           *github.Client
-	issueListOptions *github.IssueListByRepoOptions
+	filters    []starlark.Callable
+	priorities []starlark.Callable
+	status     starlark.Callable
+	host       string
+	searcher   search.Searcher
+	query      search.Query
 }
 
-func NewSource(org, repo string, filters, priorities []starlark.Callable, status starlark.Callable, issueListOptions *github.IssueListByRepoOptions) *Source {
+func NewSource(host string, filters, priorities []starlark.Callable, status starlark.Callable, query search.Query) *Source {
 	return &Source{
-		org:              org,
-		repo:             repo,
-		filters:          filters,
-		// TODO: should this just hit the 'gh' cli instead of hitting GH API?
-		client:           newGithubClient(),
-		priorities:       priorities,
-		status:           status,
-		issueListOptions: issueListOptions,
+		filters:    filters,
+		priorities: priorities,
+		status:     status,
+		searcher:   newGithubSearcher(host),
+		query:      query,
 	}
 }
 
@@ -41,31 +34,31 @@ func (g *Source) Name() string {
 }
 
 func (g *Source) Project() string {
-	return fmt.Sprintf("%s/%s", g.org, g.repo)
+	return g.query.Qualifiers.Repo[0]
 }
 
 func (g *Source) Fetch(ctx context.Context, thread *starlark.Thread) (*plugins.SourceResult, error) {
 	items := []RepoItem{}
-	issues, err := getIssuesForRepo(ctx, g.client, g.org, g.repo, g.issueListOptions)
+	issues, err := getIssuesForRepo(ctx, g.searcher, g.query)
 	if err != nil {
-		return nil, fmt.Errorf("fetching issues for GitHub repository %s/%s : %w", g.org, g.repo, err)
+		return nil, fmt.Errorf("fetching issues for GitHub repository %q : %w", g.query.Qualifiers.Repo[0], err)
 	}
 	items = append(items, issues...)
 
 	items, err = g.filterItems(thread, items...)
 	if err != nil {
-		return nil, fmt.Errorf("filtering items for GitHub repository %s/%s: %w", g.org, g.repo, err)
+		return nil, fmt.Errorf("filtering items for GitHub repository %q: %w", g.query.Qualifiers.Repo[0], err)
 	}
 
 	items, err = g.setPriority(thread, items...)
 	if err != nil {
-		return nil, fmt.Errorf("setting item priorities for GitHub repository %s/%s: %w", g.org, g.repo, err)
+		return nil, fmt.Errorf("setting item priorities for GitHub repository %q: %w", g.query.Qualifiers.Repo[0], err)
 	}
 
 	if g.status != nil {
 		items, err = g.setStatus(thread, items...)
 		if err != nil {
-			return nil, fmt.Errorf("setting item statuses for GitHub repository %s/%s: %w", g.org, g.repo, err)
+			return nil, fmt.Errorf("setting item statuses for GitHub repository %q: %w", g.query.Qualifiers.Repo[0], err)
 		}
 	}
 
@@ -143,13 +136,8 @@ func (g *Source) setStatus(thread *starlark.Thread, items ...RepoItem) ([]RepoIt
 	return out, nil
 }
 
-func newGithubClient() *github.Client {
-	token := os.Getenv("SYNKR_GITHUB_TOKEN")
-	if token == "" {
-		return github.NewClient(http.DefaultClient)
-	}
-
-	return github.NewClient(http.DefaultClient).WithAuthToken(token)
+func newGithubSearcher(host string) search.Searcher {
+	return search.NewSearcher(http.DefaultClient, host)
 }
 
 func repoItemSliceToSourceEntrySlice(items ...RepoItem) []plugins.SourceEntry {
@@ -172,7 +160,7 @@ const (
 // TODO: Expand here to capture more things that
 // may be important to filter on
 type RepoItem struct {
-	ID        int64        `json:"id"`
+	ID        string       `json:"id"`
 	URL       string       `json:"url"`
 	Author    string       `json:"author"`
 	Labels    []string     `json:"labels"`
@@ -186,7 +174,6 @@ type RepoItem struct {
 	Created   string       `json:"created"`
 	Updated   string       `json:"updated"`
 	Comments  int          `json:"comments"`
-	Milestone string       `json:"milestone"`
 
 	// Only populated on PullRequests
 	RequestedReviewers []string `json:"requestedReviewers"`
@@ -194,7 +181,7 @@ type RepoItem struct {
 }
 
 func (ri RepoItem) Identifier() string {
-	return fmt.Sprintf("%d", ri.ID)
+	return ri.ID
 }
 
 func repoItemToStarlarkDict(item RepoItem) *starlark.Dict {
@@ -211,7 +198,6 @@ func repoItemToStarlarkDict(item RepoItem) *starlark.Dict {
 	_ = dict.SetKey(starlark.String("created"), starlark.String(item.Created))
 	_ = dict.SetKey(starlark.String("updated"), starlark.String(item.Updated))
 	_ = dict.SetKey(starlark.String("comments"), starlark.MakeInt(item.Comments))
-	_ = dict.SetKey(starlark.String("milestone"), starlark.String(item.Milestone))
 
 	if item.Type == RepoItemTypePullRequest {
 		_ = dict.SetKey(starlark.String("draft"), starlark.Bool(item.Draft))
@@ -230,78 +216,36 @@ func stringArrayToStarlarkValueArray(in ...string) []starlark.Value {
 	return out
 }
 
-func getIssuesForRepo(ctx context.Context, client *github.Client, org, repo string, listOpts *github.IssueListByRepoOptions) ([]RepoItem, error) {
-	issues, _, err := client.Issues.ListByRepo(ctx, org, repo, listOpts)
+func getIssuesForRepo(ctx context.Context, searcher search.Searcher, query search.Query) ([]RepoItem, error) {
+	issues, err := searcher.Issues(query)
 	if err != nil {
 		return nil, fmt.Errorf("fetching issues: %v", err)
 	}
 
 	out := []RepoItem{}
-	for _, issue := range issues {
-		if issue == nil {
-			continue
-		}
-
+	for _, issue := range issues.Items {
 		item := RepoItem{
-			Type: RepoItemTypeIssue,
+			Type:     RepoItemTypeIssue,
+			ID:       issue.ID,
+			URL:      issue.URL,
+			Author:   issue.Author.Login,
+			Title:    issue.Title,
+			Body:     issue.Body,
+			State:    issue.State(),
+			Created:  issue.CreatedAt.String(),
+			Updated:  issue.UpdatedAt.String(),
+			Comments: issue.CommentsCount,
 		}
 
 		if issue.IsPullRequest() {
 			item.Type = RepoItemTypePullRequest
-
-			if issue.PullRequestLinks.URL != nil {
-				splits := strings.Split(*issue.PullRequestLinks.URL, "/")
-				numStr := splits[len(splits)-1]
-				// ignore any errors that happen here because worst case we just get lower
-				// fidelity information.
-				prNum, err := strconv.Atoi(numStr)
-				if err == nil {
-					pr, _, _ := client.PullRequests.Get(ctx, org, repo, prNum)
-					if pr != nil {
-						for _, user := range pr.RequestedReviewers {
-							item.RequestedReviewers = append(item.RequestedReviewers, *user.Login)
-						}
-
-						item.Draft = *pr.Draft
-					}
-				}
-			}
-		}
-
-		if issue.ID != nil {
-			item.ID = *issue.ID
-		}
-
-		if issue.HTMLURL != nil {
-			item.URL = *issue.HTMLURL
-		}
-
-		if issue.User != nil && issue.User.Login != nil {
-			item.Author = *issue.User.Login
-		}
-
-		if issue.Title != nil {
-			item.Title = *issue.Title
-		}
-
-		if issue.Body != nil {
-			item.Body = *issue.Body
-		}
-
-		if issue.State != nil {
-			item.State = *issue.State
+			item.URL = issue.PullRequest.URL
 		}
 
 		if issue.Assignees != nil {
 			assignees := []string{}
 			for _, assignee := range issue.Assignees {
-				if assignee == nil {
-					continue
-				}
-
-				if assignee.Login != nil {
-					assignees = append(assignees, *assignee.Login)
-				}
+				assignees = append(assignees, assignee.Login)
 			}
 
 			item.Assignees = assignees
@@ -310,32 +254,10 @@ func getIssuesForRepo(ctx context.Context, client *github.Client, org, repo stri
 		if issue.Labels != nil {
 			labels := []string{}
 			for _, label := range issue.Labels {
-				if label == nil {
-					continue
-				}
-
-				if label.Name != nil {
-					labels = append(labels, *label.Name)
-				}
+				labels = append(labels, label.Name)
 			}
 
 			item.Labels = labels
-		}
-
-		if issue.CreatedAt != nil {
-			item.Created = issue.CreatedAt.String()
-		}
-
-		if issue.UpdatedAt != nil {
-			item.Updated = issue.UpdatedAt.String()
-		}
-
-		if issue.Comments != nil {
-			item.Comments = *issue.Comments
-		}
-
-		if issue.Milestone != nil && issue.Milestone.Title != nil {
-			item.Milestone = *issue.Milestone.Title
 		}
 
 		out = append(out, item)

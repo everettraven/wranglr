@@ -1,8 +1,8 @@
 package github
 
 import (
+	"github.com/cli/cli/v2/pkg/search"
 	"github.com/everettraven/synkr/pkg/builtins"
-	"github.com/google/go-github/v71/github"
 	"go.starlark.net/starlark"
 )
 
@@ -11,11 +11,12 @@ func GithubBuiltinFunc(sourcer *Sourcer) builtins.BuiltinFunc {
 		var filters *starlark.List
 		var priorities *starlark.List
 		var status starlark.Callable
-		var org starlark.String
+
+		var host starlark.String
 		var repo starlark.String
 
 		// GitHub issue list filters
-		var milestone starlark.String
+		// TODO: expand this and/or make this the return value of a callable
 		var state starlark.String
 		var assignee starlark.String
 		var creator starlark.String
@@ -23,11 +24,11 @@ func GithubBuiltinFunc(sourcer *Sourcer) builtins.BuiltinFunc {
 		var labels *starlark.List
 		var sort starlark.String
 		var direction starlark.String
+		var limit starlark.Int
 
 		err := starlark.UnpackArgs("github", args, kwargs,
-			"org", &org,
+			"host?", &host,
 			"repo", &repo,
-			"milestone?", &milestone,
 			"state?", &state,
 			"assignee?", &assignee,
 			"creator?", &creator,
@@ -35,6 +36,7 @@ func GithubBuiltinFunc(sourcer *Sourcer) builtins.BuiltinFunc {
 			"labels?", &labels,
 			"sort?", &sort,
 			"direction?", &direction,
+			"limit?", &limit,
 			"filters?", &filters,
 			"priorities?", &priorities,
 			"status?", &status,
@@ -53,24 +55,34 @@ func GithubBuiltinFunc(sourcer *Sourcer) builtins.BuiltinFunc {
 			priorityCallables = builtins.TypeFromStarlarkList[starlark.Callable](priorities)
 		}
 
-		listOpts := &github.IssueListByRepoOptions{
-			Milestone: milestone.GoString(),
-			State:     state.GoString(),
-			Assignee:  assignee.GoString(),
-			Creator:   creator.GoString(),
-			Mentioned: mentioned.GoString(),
-			Labels:    builtins.TypeFromStarlarkList[string](labels),
-			Sort:      sort.GoString(),
-			Direction: direction.GoString(),
+		limitValue := 100
+		if limit.BigInt().Int64() > 0 {
+			limitValue = int(limit.BigInt().Int64())
 		}
 
-		ghSource := NewSource(org.GoString(), repo.GoString(), filterCallables, priorityCallables, status, listOpts)
+		query := search.Query{
+			Limit: limitValue,
+			Kind:  search.KindIssues,
+			Order: direction.GoString(),
+			Sort:  sort.GoString(),
+			Qualifiers: search.Qualifiers{
+				State:    state.GoString(),
+				Assignee: assignee.GoString(),
+				Author:   creator.GoString(),
+				Mentions: mentioned.GoString(),
+				Label:    builtins.TypeFromStarlarkList[string](labels),
+				Repo:     []string{repo.GoString()},
+			},
+		}
+
+		hostValue := "github.com"
+		if host.GoString() != "" {
+			hostValue = host.GoString()
+		}
+
+		ghSource := NewSource(hostValue, filterCallables, priorityCallables, status, query)
 		sourcer.AddSource(ghSource)
 
 		return starlark.None, nil
 	}
-}
-
-func ptr[T any](in T) *T {
-	return &in
 }
