@@ -1,12 +1,17 @@
 package github
 
 import (
+	"fmt"
+
 	"github.com/everettraven/synkr/pkg/plugins"
 	"go.starlark.net/starlark"
 )
 
 func init() {
-	plugins.Register(New())
+    err := plugins.Register(New())
+    if err != nil {
+        panic(fmt.Errorf("registering github plugin: %w", err))
+    }
 }
 
 func New() plugins.Plugin {

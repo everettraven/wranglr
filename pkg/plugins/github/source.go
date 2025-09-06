@@ -14,7 +14,6 @@ type Source struct {
 	filters    []starlark.Callable
 	priorities []starlark.Callable
 	status     starlark.Callable
-	host       string
 	searcher   search.Searcher
 	query      search.Query
 }
