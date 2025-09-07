@@ -13,14 +13,16 @@ import (
 )
 
 type Source struct {
+	filters    []starlark.Callable
 	priorities []starlark.Callable
 	status     starlark.Callable
 	searcher   search.Searcher
 	query      search.Query
 }
 
-func NewSource(host string, priorities []starlark.Callable, status starlark.Callable, query search.Query) *Source {
+func NewSource(host string, filters, priorities []starlark.Callable, status starlark.Callable, query search.Query) *Source {
 	return &Source{
+		filters:    filters,
 		priorities: priorities,
 		status:     status,
 		searcher:   newGithubSearcher(host),
@@ -65,7 +67,16 @@ func (g *Source) Fetch(ctx context.Context, thread *starlark.Thread, resultChan 
 				}
 
 				// process items
-                err := g.setStatus(thread, item)
+                include, err := g.checkFilters(thread, item)
+                if err != nil {
+                    errs = append(errs, err)
+                }
+
+                if !include {
+                    break
+                }
+
+				err = g.setStatus(thread, item)
 				if err != nil {
 					errs = append(errs, err)
 					break
@@ -93,6 +104,21 @@ func (g *Source) Fetch(ctx context.Context, thread *starlark.Thread, resultChan 
 	processGroup.Wait()
 
 	return errors.Join(errs...)
+}
+
+func (g *Source) checkFilters(thread *starlark.Thread, item *RepoItem) (bool, error) {
+    for _, filterFunc := range g.filters {
+        val, err := starlark.Call(thread, filterFunc, starlark.Tuple{repoItemToStarlarkDict(item)}, nil)
+        if err != nil {
+            return false, fmt.Errorf("calling filter function %q: %w", filterFunc.Name(), err)
+        }
+
+        if !val.Truth() {
+            return false, nil
+        }
+    }
+
+    return true, nil
 }
 
 func (g *Source) setPriority(thread *starlark.Thread, item *RepoItem) error {
@@ -230,8 +256,8 @@ func (g *Source) getIssuesForRepo(queue chan *RepoItem) error {
 			Created:    issue.CreatedAt.String(),
 			Updated:    issue.UpdatedAt.String(),
 			Comments:   issue.CommentsCount,
-            SourceName: "github",
-            Project: g.Project(),
+			SourceName: "github",
+			Project:    g.Project(),
 		}
 
 		if issue.IsPullRequest() {

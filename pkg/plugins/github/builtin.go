@@ -10,6 +10,7 @@ func GithubBuiltinFunc(sourcer *Sourcer) builtins.BuiltinFunc {
 	return func(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 		var priorities *starlark.List
 		var status starlark.Callable
+        var filters *starlark.List
 
 		var host starlark.String
 		var repo starlark.String
@@ -81,6 +82,7 @@ func GithubBuiltinFunc(sourcer *Sourcer) builtins.BuiltinFunc {
 			"sort?", &sort,
 			"order?", &order,
 			"limit?", &limit,
+            "filters?", &filters,
 			"priorities?", &priorities,
 			"status?", &status,
 		)
@@ -92,6 +94,11 @@ func GithubBuiltinFunc(sourcer *Sourcer) builtins.BuiltinFunc {
 		if priorities != nil {
 			priorityCallables = builtins.TypeFromStarlarkList[starlark.Callable](priorities)
 		}
+
+        filterCallables := []starlark.Callable{}
+        if filters != nil {
+            filterCallables = builtins.TypeFromStarlarkList[starlark.Callable](filters)
+        }
 
 		limitValue := 100
 		if limit.BigInt().Int64() > 0 {
@@ -144,7 +151,7 @@ func GithubBuiltinFunc(sourcer *Sourcer) builtins.BuiltinFunc {
 			hostValue = host.GoString()
 		}
 
-		ghSource := NewSource(hostValue, priorityCallables, status, query)
+		ghSource := NewSource(hostValue, filterCallables, priorityCallables, status, query)
 		sourcer.AddSource(ghSource)
 
 		return starlark.None, nil
