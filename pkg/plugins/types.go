@@ -8,18 +8,13 @@ import (
 	"go.starlark.net/starlark"
 )
 
-type SourceResult struct {
-	Source  string `json:"source"`
-	Project string `json:"project"`
-	Items   []SourceEntry  `json:"items"`
-}
-
 type SourceEntry interface {
 	Identifier() string
+    Source() string
 }
 
 type Source interface {
-	Fetch(context.Context, *starlark.Thread) (*SourceResult, error)
+	Fetch(context.Context, *starlark.Thread, chan SourceEntry) error
 	Name() string
 }
 

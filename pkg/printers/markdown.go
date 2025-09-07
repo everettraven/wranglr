@@ -10,7 +10,7 @@ import (
 
 type Markdown struct{}
 
-func (md *Markdown) Print(results ...plugins.SourceResult) error {
+func (md *Markdown) Print(results ...plugins.SourceEntry) error {
 	for _, result := range results {
 		out, err := md.PrintResult(result)
 		if err != nil {
@@ -22,20 +22,18 @@ func (md *Markdown) Print(results ...plugins.SourceResult) error {
 	return nil
 }
 
-func (md *Markdown) PrintResult(result plugins.SourceResult) (string, error) {
+func (md *Markdown) PrintResult(result plugins.SourceEntry) (string, error) {
 	var out strings.Builder
-	out.WriteString(fmt.Sprintf("# %s - %s\n", result.Source, result.Project))
+	out.WriteString(fmt.Sprintf("# %s - %s\n", result.Source, result.Source()))
 
-	for _, item := range result.Items {
-		switch item := item.(type) {
-		case github.RepoItem:
-			out.WriteString(md.PrintGitHubRepoItem(item))
-		default:
-			out.WriteString(fmt.Sprintf("%v", item))
-		}
-
-		out.WriteString("\n")
+	switch item := result.(type) {
+	case github.RepoItem:
+		out.WriteString(md.PrintGitHubRepoItem(item))
+	default:
+		out.WriteString(fmt.Sprintf("%v", item))
 	}
+
+	out.WriteString("\n")
 
 	return out.String(), nil
 }

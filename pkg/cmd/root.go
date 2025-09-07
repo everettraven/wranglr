@@ -53,7 +53,7 @@ func run(ctx context.Context, configFile, output string) error {
 	return printResults(output, results...)
 }
 
-func printResults(output string, results ...plugins.SourceResult) error {
+func printResults(output string, results ...plugins.SourceEntry) error {
 	switch output {
 	case "json":
 		out := &printers.JSON{}

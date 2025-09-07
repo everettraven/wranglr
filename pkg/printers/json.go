@@ -9,7 +9,7 @@ import (
 
 type JSON struct{}
 
-func (j *JSON) Print(results ...plugins.SourceResult) error {
+func (j *JSON) Print(results ...plugins.SourceEntry) error {
 	outBytes := []byte{}
 	for _, result := range results {
 		out, err := json.Marshal(result)

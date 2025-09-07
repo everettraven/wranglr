@@ -2,8 +2,10 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"sync"
 
 	"github.com/cli/cli/v2/pkg/search"
 	"github.com/everettraven/synkr/pkg/plugins"
@@ -36,117 +38,130 @@ func (g *Source) Project() string {
 	return g.query.Qualifiers.Repo[0]
 }
 
-func (g *Source) Fetch(ctx context.Context, thread *starlark.Thread) (*plugins.SourceResult, error) {
-	items := []RepoItem{}
-	issues, err := getIssuesForRepo(ctx, g.searcher, g.query)
-	if err != nil {
-		return nil, fmt.Errorf("fetching issues for GitHub repository %q : %w", g.query.Qualifiers.Repo[0], err)
-	}
-	items = append(items, issues...)
+func (g *Source) Fetch(ctx context.Context, thread *starlark.Thread, resultChan chan plugins.SourceEntry) error {
+	queueChan := make(chan *RepoItem)
 
-	items, err = g.filterItems(thread, items...)
-	if err != nil {
-		return nil, fmt.Errorf("filtering items for GitHub repository %q: %w", g.query.Qualifiers.Repo[0], err)
-	}
-
-	items, err = g.setPriority(thread, items...)
-	if err != nil {
-		return nil, fmt.Errorf("setting item priorities for GitHub repository %q: %w", g.query.Qualifiers.Repo[0], err)
-	}
-
-	if g.status != nil {
-		items, err = g.setStatus(thread, items...)
+	fetchWaitGroup := sync.WaitGroup{}
+	fetchWaitGroup.Add(1)
+	errs := []error{}
+	go func() {
+		err := g.getIssuesForRepo(queueChan)
 		if err != nil {
-			return nil, fmt.Errorf("setting item statuses for GitHub repository %q: %w", g.query.Qualifiers.Repo[0], err)
+			errs = append(errs, fmt.Errorf("fetching issues for GitHub repository %q : %w", g.query.Qualifiers.Repo[0], err))
 		}
-	}
+		fetchWaitGroup.Done()
+	}()
 
-	return &plugins.SourceResult{
-		Source:  "GitHub",
-		Project: g.Project(),
-		Items:   repoItemSliceToSourceEntrySlice(items...),
-	}, nil
+	processGroup := sync.WaitGroup{}
+	processGroup.Add(1)
+	go func() {
+		for {
+			shouldExit := false
+			select {
+			case <-ctx.Done():
+				shouldExit = true
+			case item, ok := <-queueChan:
+				if !ok {
+					shouldExit = true
+					break
+				}
+
+				// process items
+				include, err := g.filterItem(thread, item)
+				if err != nil {
+					errs = append(errs, err)
+					break
+				}
+
+				if !include {
+					break
+				}
+
+				err = g.setStatus(thread, item)
+				if err != nil {
+					errs = append(errs, err)
+					break
+				}
+
+				err = g.setPriority(thread, item)
+				if err != nil {
+					errs = append(errs, err)
+					break
+				}
+
+				resultChan <- item
+			}
+
+			if shouldExit {
+				break
+			}
+		}
+		processGroup.Done()
+	}()
+
+	fetchWaitGroup.Wait()
+	close(queueChan)
+
+	processGroup.Wait()
+
+	return errors.Join(errs...)
 }
 
-func (g *Source) filterItems(thread *starlark.Thread, items ...RepoItem) ([]RepoItem, error) {
-	if len(g.filters) == 0 {
-		return items, nil
-	}
-
-	outItems := []RepoItem{}
-
-	for _, item := range items {
-		for _, filter := range g.filters {
-			out, err := starlark.Call(thread, filter, starlark.Tuple{repoItemToStarlarkDict(item)}, nil)
-			if err != nil {
-				return nil, err
-			}
-
-			if out.Truth() {
-				outItems = append(outItems, item)
-			}
-		}
-	}
-
-	return outItems, nil
-}
-
-func (g *Source) setPriority(thread *starlark.Thread, items ...RepoItem) ([]RepoItem, error) {
-	out := []RepoItem{}
-
-	for _, item := range items {
-		itemScore := 0
-		for _, priorityFunc := range g.priorities {
-			val, err := starlark.Call(thread, priorityFunc, starlark.Tuple{repoItemToStarlarkDict(item)}, nil)
-			if err != nil {
-				return nil, fmt.Errorf("calling priority function %q: %w", priorityFunc.Name(), err)
-			}
-
-			score := 0
-			err = starlark.AsInt(val, &score)
-			if err != nil {
-				return nil, fmt.Errorf("could not use return value of priority function %q as an integer: %w", priorityFunc.Name(), err)
-			}
-
-			itemScore += score
-		}
-
-		item.Priority = itemScore
-		out = append(out, item)
-	}
-
-	return out, nil
-}
-
-func (g *Source) setStatus(thread *starlark.Thread, items ...RepoItem) ([]RepoItem, error) {
-	out := []RepoItem{}
-
-	for _, item := range items {
-		val, err := starlark.Call(thread, g.status, starlark.Tuple{repoItemToStarlarkDict(item)}, nil)
+func (g *Source) filterItem(thread *starlark.Thread, item *RepoItem) (bool, error) {
+	include := true
+	for _, filter := range g.filters {
+		out, err := starlark.Call(thread, filter, starlark.Tuple{repoItemToStarlarkDict(item)}, nil)
 		if err != nil {
-			return nil, fmt.Errorf("calling status function %q: %w", g.status.Name(), err)
+			return false, err
 		}
 
-		status, _ := starlark.AsString(val)
-		item.Status = status
-		out = append(out, item)
+		if !out.Truth() {
+			include = false
+		}
 	}
 
-	return out, nil
+	return include, nil
+}
+
+func (g *Source) setPriority(thread *starlark.Thread, item *RepoItem) error {
+	itemScore := 0
+	for _, priorityFunc := range g.priorities {
+		val, err := starlark.Call(thread, priorityFunc, starlark.Tuple{repoItemToStarlarkDict(item)}, nil)
+		if err != nil {
+			return fmt.Errorf("calling priority function %q: %w", priorityFunc.Name(), err)
+		}
+
+		score := 0
+		err = starlark.AsInt(val, &score)
+		if err != nil {
+			return fmt.Errorf("could not use return value of priority function %q as an integer: %w", priorityFunc.Name(), err)
+		}
+
+		itemScore += score
+	}
+
+	item.Priority = itemScore
+	return nil
+}
+
+func (g *Source) setStatus(thread *starlark.Thread, item *RepoItem) error {
+	if g.status == nil {
+		return nil
+	}
+
+	val, err := starlark.Call(thread, g.status, starlark.Tuple{repoItemToStarlarkDict(item)}, nil)
+	if err != nil {
+		return fmt.Errorf("calling status function %q: %w", g.status.Name(), err)
+	}
+
+	status, _ := starlark.AsString(val)
+	item.Status = status
+
+	return nil
 }
 
 func newGithubSearcher(host string) search.Searcher {
 	return search.NewSearcher(http.DefaultClient, host)
-}
-
-func repoItemSliceToSourceEntrySlice(items ...RepoItem) []plugins.SourceEntry {
-	out := []plugins.SourceEntry{}
-
-	for _, item := range items {
-		out = append(out, item)
-	}
-
-	return out
 }
 
 type RepoItemType string
@@ -159,20 +174,22 @@ const (
 // TODO: Expand here to capture more things that
 // may be important to filter on
 type RepoItem struct {
-	ID        string       `json:"id"`
-	URL       string       `json:"url"`
-	Author    string       `json:"author"`
-	Labels    []string     `json:"labels"`
-	Type      RepoItemType `json:"type"`
-	Assignees []string     `json:"assignees"`
-	Title     string       `json:"title"`
-	Body      string       `json:"body"`
-	State     string       `json:"state"`
-	Priority  int          `json:"priority"`
-	Status    string       `json:"status"`
-	Created   string       `json:"created"`
-	Updated   string       `json:"updated"`
-	Comments  int          `json:"comments"`
+	ID         string       `json:"id"`
+	URL        string       `json:"url"`
+	Author     string       `json:"author"`
+	Labels     []string     `json:"labels"`
+	Type       RepoItemType `json:"type"`
+	Assignees  []string     `json:"assignees"`
+	Title      string       `json:"title"`
+	Body       string       `json:"body"`
+	State      string       `json:"state"`
+	Priority   int          `json:"priority"`
+	Status     string       `json:"status"`
+	Created    string       `json:"created"`
+	Updated    string       `json:"updated"`
+	Comments   int          `json:"comments"`
+	Project    string       `json:"project"`
+	SourceName string       `json:"source"`
 
 	// Only populated on PullRequests
 	RequestedReviewers []string `json:"requestedReviewers"`
@@ -183,8 +200,16 @@ func (ri RepoItem) Identifier() string {
 	return ri.ID
 }
 
-func repoItemToStarlarkDict(item RepoItem) *starlark.Dict {
+func (ri RepoItem) Source() string {
+	return fmt.Sprintf("%s/%s", ri.SourceName, ri.Project)
+}
+
+func repoItemToStarlarkDict(item *RepoItem) *starlark.Dict {
 	dict := &starlark.Dict{}
+
+	if item == nil {
+		return dict
+	}
 
 	// TODO: handle errors when setting keys
 	_ = dict.SetKey(starlark.String("author"), starlark.String(item.Author))
@@ -215,25 +240,26 @@ func stringArrayToStarlarkValueArray(in ...string) []starlark.Value {
 	return out
 }
 
-func getIssuesForRepo(ctx context.Context, searcher search.Searcher, query search.Query) ([]RepoItem, error) {
-	issues, err := searcher.Issues(query)
+func (g *Source) getIssuesForRepo(queue chan *RepoItem) error {
+	issues, err := g.searcher.Issues(g.query)
 	if err != nil {
-		return nil, fmt.Errorf("fetching issues: %v", err)
+		return fmt.Errorf("fetching issues: %v", err)
 	}
 
-	out := []RepoItem{}
 	for _, issue := range issues.Items {
-		item := RepoItem{
-			Type:     RepoItemTypeIssue,
-			ID:       issue.ID,
-			URL:      issue.URL,
-			Author:   issue.Author.Login,
-			Title:    issue.Title,
-			Body:     issue.Body,
-			State:    issue.State(),
-			Created:  issue.CreatedAt.String(),
-			Updated:  issue.UpdatedAt.String(),
-			Comments: issue.CommentsCount,
+		item := &RepoItem{
+			Type:       RepoItemTypeIssue,
+			ID:         issue.ID,
+			URL:        issue.URL,
+			Author:     issue.Author.Login,
+			Title:      issue.Title,
+			Body:       issue.Body,
+			State:      issue.State(),
+			Created:    issue.CreatedAt.String(),
+			Updated:    issue.UpdatedAt.String(),
+			Comments:   issue.CommentsCount,
+            SourceName: "github",
+            Project: g.Project(),
 		}
 
 		if issue.IsPullRequest() {
@@ -259,8 +285,8 @@ func getIssuesForRepo(ctx context.Context, searcher search.Searcher, query searc
 			item.Labels = labels
 		}
 
-		out = append(out, item)
+		queue <- item
 	}
 
-	return out, nil
+	return nil
 }

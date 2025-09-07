@@ -15,11 +15,11 @@ var webpage embed.FS
 
 type Web struct{}
 
-func (w *Web) Print(results ...plugins.SourceResult) error {
+func (w *Web) Print(results ...plugins.SourceEntry) error {
 	return serve(results...)
 }
 
-func serve(results ...plugins.SourceResult) error {
+func serve(results ...plugins.SourceEntry) error {
 	data, err := json.Marshal(results)
 	if err != nil {
 		return fmt.Errorf("marshalling results to json: %w", err)

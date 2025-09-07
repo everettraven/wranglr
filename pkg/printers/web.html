@@ -94,11 +94,10 @@
             const response = await fetch('/data');
             const data = await response.json();
 
-            formattedData = data.map(object => {
-                return object.items.map(item => {
+            formattedData = data.map(item => {
                     return {
-                        source: object.source,
-                        project: object.project,
+                        source: item.source,
+                        project: item.project,
                         author: item.author,
                         type: item.type,
                         title: item.title,
@@ -113,7 +112,6 @@
                         status: item.status,
                         url: item.url,
                     }
-                })
             })
 
             return formattedData.flat(Infinity)
