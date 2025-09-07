@@ -13,16 +13,14 @@ import (
 )
 
 type Source struct {
-	filters    []starlark.Callable
 	priorities []starlark.Callable
 	status     starlark.Callable
 	searcher   search.Searcher
 	query      search.Query
 }
 
-func NewSource(host string, filters, priorities []starlark.Callable, status starlark.Callable, query search.Query) *Source {
+func NewSource(host string, priorities []starlark.Callable, status starlark.Callable, query search.Query) *Source {
 	return &Source{
-		filters:    filters,
 		priorities: priorities,
 		status:     status,
 		searcher:   newGithubSearcher(host),
@@ -67,17 +65,7 @@ func (g *Source) Fetch(ctx context.Context, thread *starlark.Thread, resultChan 
 				}
 
 				// process items
-				include, err := g.filterItem(thread, item)
-				if err != nil {
-					errs = append(errs, err)
-					break
-				}
-
-				if !include {
-					break
-				}
-
-				err = g.setStatus(thread, item)
+                err := g.setStatus(thread, item)
 				if err != nil {
 					errs = append(errs, err)
 					break
@@ -105,22 +93,6 @@ func (g *Source) Fetch(ctx context.Context, thread *starlark.Thread, resultChan 
 	processGroup.Wait()
 
 	return errors.Join(errs...)
-}
-
-func (g *Source) filterItem(thread *starlark.Thread, item *RepoItem) (bool, error) {
-	include := true
-	for _, filter := range g.filters {
-		out, err := starlark.Call(thread, filter, starlark.Tuple{repoItemToStarlarkDict(item)}, nil)
-		if err != nil {
-			return false, err
-		}
-
-		if !out.Truth() {
-			include = false
-		}
-	}
-
-	return include, nil
 }
 
 func (g *Source) setPriority(thread *starlark.Thread, item *RepoItem) error {

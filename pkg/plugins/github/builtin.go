@@ -8,46 +8,84 @@ import (
 
 func GithubBuiltinFunc(sourcer *Sourcer) builtins.BuiltinFunc {
 	return func(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-		var filters *starlark.List
 		var priorities *starlark.List
 		var status starlark.Callable
 
 		var host starlark.String
 		var repo starlark.String
 
-		// GitHub issue list filters
-		// TODO: expand this and/or make this the return value of a callable
-		var state starlark.String
+		// GitHub search qualifiers
 		var assignee starlark.String
-		var creator starlark.String
-		var mentioned starlark.String
+		var author starlark.String
+		var closed starlark.String
+		var commenter starlark.String
+		var comments starlark.String
+		var created starlark.String
+		var draft *starlark.Bool
+		var extension starlark.String
+		var filename starlark.String
+		var in *starlark.List
+		var involves starlark.String
+		var is *starlark.List
 		var labels *starlark.List
+		var language starlark.String
+		var mentions starlark.String
+		var merged starlark.String
+		var milestone starlark.String
+		var no *starlark.List
+		var path starlark.String
+		var review starlark.String
+		var reviewRequested starlark.String
+		var reviewedBy starlark.String
+		var state starlark.String
+		var team starlark.String
+		var teamReviewRequested starlark.String
+		var updated starlark.String
+		var user *starlark.List
+
+		// GitHub search top-level configurations
 		var sort starlark.String
-		var direction starlark.String
+		var order starlark.String
 		var limit starlark.Int
 
 		err := starlark.UnpackArgs("github", args, kwargs,
 			"host?", &host,
 			"repo", &repo,
-			"state?", &state,
 			"assignee?", &assignee,
-			"creator?", &creator,
-			"mentioned?", &mentioned,
+			"author?", &author,
+			"closed?", &closed,
+			"commenter", &commenter,
+			"comments", &comments,
+			"created?", &created,
+			"draft?", &draft,
+			"extension?", &extension,
+			"filename?", &filename,
+			"in?", &in,
+			"involves?", &involves,
+			"is?", &is,
 			"labels?", &labels,
+			"language?", &language,
+			"mentions?", &mentions,
+			"merged?", &merged,
+			"milestone?", &milestone,
+			"no?", &no,
+			"path?", &path,
+			"review?", &review,
+			"review_requested?", &reviewRequested,
+			"reviewed_by?", &reviewedBy,
+			"state?", &state,
+			"team?", &team,
+			"team_review_requested?", &teamReviewRequested,
+			"updated?", &updated,
+			"user?", &user,
 			"sort?", &sort,
-			"direction?", &direction,
+			"order?", &order,
 			"limit?", &limit,
-			"filters?", &filters,
 			"priorities?", &priorities,
 			"status?", &status,
 		)
 		if err != nil {
 			return nil, err
-		}
-
-		filterCallables := []starlark.Callable{}
-		if filters != nil {
-			filterCallables = builtins.TypeFromStarlarkList[starlark.Callable](filters)
 		}
 
 		priorityCallables := []starlark.Callable{}
@@ -60,18 +98,44 @@ func GithubBuiltinFunc(sourcer *Sourcer) builtins.BuiltinFunc {
 			limitValue = int(limit.BigInt().Int64())
 		}
 
+		var draftValue *bool
+		if draft != nil {
+			draftValue = ptr(bool(draft.Truth()))
+		}
+
 		query := search.Query{
 			Limit: limitValue,
 			Kind:  search.KindIssues,
-			Order: direction.GoString(),
+			Order: order.GoString(),
 			Sort:  sort.GoString(),
 			Qualifiers: search.Qualifiers{
-				State:    state.GoString(),
-				Assignee: assignee.GoString(),
-				Author:   creator.GoString(),
-				Mentions: mentioned.GoString(),
-				Label:    builtins.TypeFromStarlarkList[string](labels),
-				Repo:     []string{repo.GoString()},
+				Assignee:            assignee.GoString(),
+				Author:              author.GoString(),
+				Closed:              closed.GoString(),
+				Commenter:           commenter.GoString(),
+				Comments:            comments.GoString(),
+				Created:             created.GoString(),
+				Draft:               draftValue,
+				Extension:           extension.GoString(),
+				Filename:            filename.GoString(),
+				In:                  builtins.TypeFromStarlarkList[string](in),
+				Involves:            involves.GoString(),
+				Is:                  builtins.TypeFromStarlarkList[string](is),
+				Label:               builtins.TypeFromStarlarkList[string](labels),
+				Language:            language.GoString(),
+				Merged:              merged.GoString(),
+				Mentions:            mentions.GoString(),
+				Milestone:           milestone.GoString(),
+				Repo:                []string{repo.GoString()},
+				State:               state.GoString(),
+				No:                  builtins.TypeFromStarlarkList[string](no),
+				Path:                path.GoString(),
+				ReviewRequested:     reviewRequested.GoString(),
+				ReviewedBy:          reviewedBy.GoString(),
+				Team:                team.GoString(),
+				TeamReviewRequested: teamReviewRequested.GoString(),
+				Updated:             updated.GoString(),
+				User:                builtins.TypeFromStarlarkList[string](user),
 			},
 		}
 
@@ -80,9 +144,13 @@ func GithubBuiltinFunc(sourcer *Sourcer) builtins.BuiltinFunc {
 			hostValue = host.GoString()
 		}
 
-		ghSource := NewSource(hostValue, filterCallables, priorityCallables, status, query)
+		ghSource := NewSource(hostValue, priorityCallables, status, query)
 		sourcer.AddSource(ghSource)
 
 		return starlark.None, nil
 	}
+}
+
+func ptr[T any](in T) *T {
+	return &in
 }
