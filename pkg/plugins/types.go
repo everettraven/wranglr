@@ -10,7 +10,7 @@ import (
 
 type SourceEntry interface {
 	Identifier() string
-    Source() string
+	Source() string
 }
 
 type Source interface {
@@ -25,7 +25,7 @@ type Sourcer interface {
 type Plugin struct {
 	Sourcer
 	Builtins map[string]*starlark.Builtin
-	Name string
+	Name     string
 }
 
 func (p Plugin) RegisterBuiltins(global starlark.StringDict) {
@@ -39,7 +39,7 @@ var plugins []Plugin
 func Register(plugin Plugin) error {
 	if slices.ContainsFunc(plugins, func(e Plugin) bool {
 		return e.Name == plugin.Name
-	}){
+	}) {
 		return fmt.Errorf("plugin %q is already registered", plugin.Name)
 	}
 

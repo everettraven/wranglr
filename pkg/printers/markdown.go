@@ -24,7 +24,7 @@ func (md *Markdown) Print(results ...plugins.SourceEntry) error {
 
 func (md *Markdown) PrintResult(result plugins.SourceEntry) (string, error) {
 	var out strings.Builder
-	out.WriteString(fmt.Sprintf("# %s - %s\n", result.Source, result.Source()))
+	out.WriteString(fmt.Sprintf("# %s \n", result.Source()))
 
 	switch item := result.(type) {
 	case github.RepoItem:

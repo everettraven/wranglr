@@ -6,14 +6,14 @@ Me too. So I'm building `synkr`. Maybe it will help you as well.
 
 `synkr` is a CLI tool designed to help you fetch "work items" from various sources and filter them via a [Starlark](https://github.com/bazelbuild/starlark) configuration file.
 
-"Work items" is intentionally vague for now as we continue to identify what things developers need to
+"Work items" is intentionally vague for now as I continue to identify what things developers need to
 keep track of in their day-to-day.
 
 Currently, `synkr` only has support for fetching GitHub issues and pull requests.
 
-In the future, `synkr` might support fetching items from things like Jira, Google Docs, Slack, and beyond.
+In the near-term, it is planned to add support for Jira. Longer-term support for other Jira-like tools may be added.
 
-Long-term, the goal of `synkr` is to free engineers of the overhead associated with organizing and keeping track of their tasks allowing them to focus on what they do best - engineer.
+Long-term, the goal of `synkr` is to free engineers of the overhead associated with organizing and keeping track of their tasks allowing them to focus on what they do best - be an engineer.
 
 ## Installation
 
@@ -48,13 +48,7 @@ from <https://github.com/kubernetes/kubernetes> where the Kubernetes-SIG API Mac
 to provide some input (denoted by the label `sig/api-machinery`):
 
 ```starlark
-def has_sig_api_machinery(item):
-  labels = item.get("labels")
-  if "sig/api-machinery" in labels:
-    return True
-  return False
-
-github(org="kubernetes", repo="kubernetes", filters=[has_sig_api_machinery])
+github(repo="kubernetes/kubernetes", labels=["sig/api-machinery"])
 ```
 
 For more examples, see the `examples/` directory.
@@ -137,12 +131,86 @@ The web output starts an HTTP server on an available localhost port to serve a s
 In order to use the GitHub source, you use the `github` builtin function like so:
 
 ```starlark
-github(org="org", repo="repo", filters?=[...], priorities?=[...], status?={function}, include_mentions?={boolean})
+github(
+    host?="github.com",
+    repo="{organization}/{repository}",
+    keywords?=[""],
+    assignee?="",
+    author?="",
+    closed?="YYYY-MM-DD",
+    commenter?="",
+    comments?="",
+    created?="YYYY-MM-DD",
+    draft?="true | false",
+    extension?="",
+    filename?="",
+    in?=[""],
+    involves?="",
+    is?=[""],
+    labels?=[""],
+    language?="",
+    mentions?="",
+    merged?="YYYY-MM-DD",
+    milestone?="",
+    no?=[""],
+    path?="",	
+    review?="",
+	review_requested?="",
+	reviewed_by?="",
+	state?="",
+	team?="",
+	team_review_requested?="",
+	updated?="YYYY-MM-DD",
+	sort?="",
+	order?="",
+	limit?=100,
+    filters?=[...],
+    priorities?=[...],
+    status?={function},
+)
 ```
 
-`org` is the GitHub organization/user that the repository belongs to. Required.
+##### Request Filter parameters
 
-`repo` is the name of the repository. Required.
+The following describes how each of the parameters in the `github` builtin function influences the request
+made against the GitHub API.
+
+- `host` is the hostname for the GitHub instance to query the API of. Optional. Defaults to `github.com`.
+- `repo` is the organization and repository pair to pull issues and pull requests from. Required.
+- `keywords` is the set of keywords to filter search results on. Optional.
+- `assignee` requests only issues and pull request assigned to this particular user. Optional.
+- `author` requests only issues and pull requests authored by this particular user. Optional.
+- `closed` requests only issues and pull requests where they have been closed in the provided date range (i.e `>2024-12-1` ,`<2025-1-1`, `2024-12-1..2025-1-1`). Optional.
+- `commenter` requests only issues and pull requests the specified user has commented on. Optional.
+- `comments` requests only issues and pull requests where the number of comments matches the specified constraint (i.e `>10`, `<20`, `10..20`). Optional.
+- `created` requests only issues and pull requests where the creation date is in the provided date range. Optional.
+- `draft` requests only pull requests that match the draft constraint (`true` or `false`). Optional.
+- `extension` requests only pull requests that contain changes to files with the specified file extension. Optional.
+- `filename` requests only pull requests that contain changes to the specified filename. Optional.
+- `in` requests only pull requests where the keywords exist in the specified fields (i.e `title`, `body`). Optional.
+- `involves` requests only issues and pull requests that involve the specified user. Optional.
+- `is` requests only issues and pull requests that match the specified constraints (`issue`, `pr`, `draft`, `open`, `closed`, `merged`). Optional.
+- `labels` requests only issues and pull requests that have the specified set of labels. Optional.
+- `language` requests only issues and pull requests that contain the specified programming language. Optional.
+- `mentions` requests only issues and pull requests where the specified user has been mentioned. Optional.
+- `merged` requests only pull requests that have merged based on the date criteria set. Optional.
+- `milestone` requests only issues and pull requests that are assigned to the specified milestone. Optional.
+- `no` requests only issues and pull requests that do not have the specified attributes (i.e `milestone`, `assignee`, `labels`). Optional.
+- `path` requests only pull requests that contain changes to the specified path. Optional.
+- `review` requests only pull requests that have the specified review state (i.e `none`, `approved`, `changes_requested`). Optional.
+- `review_requested` requests only pull requests that have requested a review from the specified user. Optional.
+- `reviewed_by` requests only pull requests that have been reviewed by the specified user. Optional.
+- `state` requests only issues and pull requests based on the specified state (i.e `open`, `closed`). Optional.
+- `team` requests only issues and pull requests where the specified team is mentioned. Optional.
+- `team_review_requested` requests only pull requests where the specified team has been requested for review. Optional.
+- `updated` requests only issues and pull requests that have been updated based on the date criteria specified. Optional.
+- `sort` specifies how the returned results from the GitHub search API should be sorted (i.e `created`, `updated`, `comments`, `reactions`). Optional.
+- `order` specifies the ordering in which results from the GitHub search API should be returned (i.e `asc`, `desc`). Optional.
+- `limit` specifies the maximum number of results that should be returned from the GitHub search API. Optional.
+
+##### Post-Request Parameters
+
+The following describes how each parameter influences the processing of the results returned by the GitHub search API: 
 
 `filters` is an optional list of functions that should be called by `synkr` when determining whether or not an issue or pull request should be included in the returned set.
 The functions are expected to accept a single parameter and return a "truthy" value (i.e `True` / `False` state should be able to be determined from the returned value).
@@ -170,10 +238,6 @@ The functions are expected to accept a single parameter (the same parameter as `
 `status` is an optional function that should be called by `synkr` when determining the "status" to assign to an issue or pull request.
 "status" is a distinctly different value than `state`, as it represents an arbitrary status defined by you the user instead of GitHub's perceived state of the item.
 The function is expected to accept a single parameter (the same parameter as above) and return a string value to set the item's status to.
-
-`include_mentions` is an optional setting to enable `synkr` to determine the mentions associated with a given item. This is a boolean value and defaults to `False`.
-When set to `True`, `synkr` will fetch all comments associated with an issue/pull request and parse out any mentions. This is an expensive operation as this needs an API request to be done individually for
-each issue/pull request. You can easily hit the unauthenticated rate limit of 60 requests per hour when extracting mentions. The authenticated rate limit is 5000 requests per hour, but is still possible to hit if you are not using this configuration option sparingly.
 
 ##### Authentication
 

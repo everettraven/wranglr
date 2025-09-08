@@ -8,10 +8,10 @@ import (
 )
 
 func init() {
-    err := plugins.Register(New())
-    if err != nil {
-        panic(fmt.Errorf("registering github plugin: %w", err))
-    }
+	err := plugins.Register(New())
+	if err != nil {
+		panic(fmt.Errorf("registering github plugin: %w", err))
+	}
 }
 
 func New() plugins.Plugin {

@@ -67,14 +67,14 @@ func (g *Source) Fetch(ctx context.Context, thread *starlark.Thread, resultChan 
 				}
 
 				// process items
-                include, err := g.checkFilters(thread, item)
-                if err != nil {
-                    errs = append(errs, err)
-                }
+				include, err := g.checkFilters(thread, item)
+				if err != nil {
+					errs = append(errs, err)
+				}
 
-                if !include {
-                    break
-                }
+				if !include {
+					break
+				}
 
 				err = g.setStatus(thread, item)
 				if err != nil {
@@ -107,18 +107,18 @@ func (g *Source) Fetch(ctx context.Context, thread *starlark.Thread, resultChan 
 }
 
 func (g *Source) checkFilters(thread *starlark.Thread, item *RepoItem) (bool, error) {
-    for _, filterFunc := range g.filters {
-        val, err := starlark.Call(thread, filterFunc, starlark.Tuple{repoItemToStarlarkDict(item)}, nil)
-        if err != nil {
-            return false, fmt.Errorf("calling filter function %q: %w", filterFunc.Name(), err)
-        }
+	for _, filterFunc := range g.filters {
+		val, err := starlark.Call(thread, filterFunc, starlark.Tuple{repoItemToStarlarkDict(item)}, nil)
+		if err != nil {
+			return false, fmt.Errorf("calling filter function %q: %w", filterFunc.Name(), err)
+		}
 
-        if !val.Truth() {
-            return false, nil
-        }
-    }
+		if !val.Truth() {
+			return false, nil
+		}
+	}
 
-    return true, nil
+	return true, nil
 }
 
 func (g *Source) setPriority(thread *starlark.Thread, item *RepoItem) error {

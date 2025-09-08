@@ -53,8 +53,8 @@ func (e *Engine) Run(ctx context.Context, thread *starlark.Thread) ([]plugins.So
 
 				results.mu.Lock()
 				existing := results.results[entry.Source()]
-                existing = appendUniqueResults(existing, entry)
-                results.results[entry.Source()] = existing
+				existing = appendUniqueResults(existing, entry)
+				results.results[entry.Source()] = existing
 				results.mu.Unlock()
 			}
 
@@ -82,10 +82,10 @@ func (e *Engine) Run(ctx context.Context, thread *starlark.Thread) ([]plugins.So
 		}
 	}
 
-    sourceWaitGroup.Wait()
-    close(resultChan)
+	sourceWaitGroup.Wait()
+	close(resultChan)
 
-    processWaitGroup.Wait()
+	processWaitGroup.Wait()
 
 	out := []plugins.SourceEntry{}
 

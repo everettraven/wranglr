@@ -10,12 +10,13 @@ func GithubBuiltinFunc(sourcer *Sourcer) builtins.BuiltinFunc {
 	return func(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 		var priorities *starlark.List
 		var status starlark.Callable
-        var filters *starlark.List
+		var filters *starlark.List
 
 		var host starlark.String
 		var repo starlark.String
 
 		// GitHub search qualifiers
+		var keywords *starlark.List
 		var assignee starlark.String
 		var author starlark.String
 		var closed starlark.String
@@ -42,7 +43,6 @@ func GithubBuiltinFunc(sourcer *Sourcer) builtins.BuiltinFunc {
 		var team starlark.String
 		var teamReviewRequested starlark.String
 		var updated starlark.String
-		var user *starlark.List
 
 		// GitHub search top-level configurations
 		var sort starlark.String
@@ -52,16 +52,17 @@ func GithubBuiltinFunc(sourcer *Sourcer) builtins.BuiltinFunc {
 		err := starlark.UnpackArgs("github", args, kwargs,
 			"host?", &host,
 			"repo", &repo,
+			"keywords?", &keywords,
 			"assignee?", &assignee,
 			"author?", &author,
 			"closed?", &closed,
-			"commenter", &commenter,
-			"comments", &comments,
+			"commenter?", &commenter,
+			"comments?", &comments,
 			"created?", &created,
 			"draft?", &draft,
 			"extension?", &extension,
 			"filename?", &filename,
-			"in?", &in,
+			"in", &in,
 			"involves?", &involves,
 			"is?", &is,
 			"labels?", &labels,
@@ -78,11 +79,10 @@ func GithubBuiltinFunc(sourcer *Sourcer) builtins.BuiltinFunc {
 			"team?", &team,
 			"team_review_requested?", &teamReviewRequested,
 			"updated?", &updated,
-			"user?", &user,
 			"sort?", &sort,
 			"order?", &order,
 			"limit?", &limit,
-            "filters?", &filters,
+			"filters?", &filters,
 			"priorities?", &priorities,
 			"status?", &status,
 		)
@@ -95,10 +95,10 @@ func GithubBuiltinFunc(sourcer *Sourcer) builtins.BuiltinFunc {
 			priorityCallables = builtins.TypeFromStarlarkList[starlark.Callable](priorities)
 		}
 
-        filterCallables := []starlark.Callable{}
-        if filters != nil {
-            filterCallables = builtins.TypeFromStarlarkList[starlark.Callable](filters)
-        }
+		filterCallables := []starlark.Callable{}
+		if filters != nil {
+			filterCallables = builtins.TypeFromStarlarkList[starlark.Callable](filters)
+		}
 
 		limitValue := 100
 		if limit.BigInt().Int64() > 0 {
@@ -111,10 +111,11 @@ func GithubBuiltinFunc(sourcer *Sourcer) builtins.BuiltinFunc {
 		}
 
 		query := search.Query{
-			Limit: limitValue,
-			Kind:  search.KindIssues,
-			Order: order.GoString(),
-			Sort:  sort.GoString(),
+			Limit:    limitValue,
+			Kind:     search.KindIssues,
+			Order:    order.GoString(),
+			Sort:     sort.GoString(),
+			Keywords: builtins.TypeFromStarlarkList[string](keywords),
 			Qualifiers: search.Qualifiers{
 				Assignee:            assignee.GoString(),
 				Author:              author.GoString(),
@@ -142,7 +143,6 @@ func GithubBuiltinFunc(sourcer *Sourcer) builtins.BuiltinFunc {
 				Team:                team.GoString(),
 				TeamReviewRequested: teamReviewRequested.GoString(),
 				Updated:             updated.GoString(),
-				User:                builtins.TypeFromStarlarkList[string](user),
 			},
 		}
 
