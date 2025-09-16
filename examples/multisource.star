@@ -1,39 +1,15 @@
-# Example of filtering out items where the author
-# is _not_ 'everettraven'
-def authored_by_not_me(item):
-  author = item.get("author")
-  if author != "everettraven":
-    return True
-  return False
+# Fetch all open issues and pull requests
+# in the kubernetes-sigs/crdify repository
+crdify_open_items = github.search(query="repo:kubernetes-sigs/crdify is:open")
 
-# Example of increasing priority score by
-# a value of '50' if the item contains the
-# label 'help wanted'
-def priority_help_wanted(item):
-  labels = item.get("labels")
-  if "help wanted" in labels:
-    return 50
-  return 0
+# Fetch all jira tickets in the OpenShift Bugs
+# project where kube-apiserver is included in
+# the components
+openshift_kubeapiserver_bugs = jira.search(
+    host="https://issues.redhat.com",
+    query="project = \"OpenShift Bugs\" AND component IN (kube-apiserver)",
+)
 
-# Example of setting the status of an item based
-# on fields of the item.
-# In this case we want:
-# - IF item is an Issue AND does not have label triage/accepted THEN status = "Needs Triage"
-# - IF item is a PullRequest AND does not have any assignees AND is missing the LGTM label THEN status = "Needs Review"
-def set_status(item):
-  type = item.get("type")
-  labels = item.get("labels")
-  assignees = item.get("assignees")
-
-  if type == "Issue":
-    if "triage/accepted" not in labels:
-      return "Needs Triage"
-  if type == "PullRequest":
-    if len(assignees) == 0 and "lgtm" not in labels:
-      return "Needs Review"
-  return ""
-
-github(repo="kubernetes-sigs/kube-api-linter", filters=[authored_by_not_me], priorities=[priority_help_wanted], status=set_status)
-github(repo="kubernetes-sigs/crdify", filters=[authored_by_not_me])
-github(repo="kubernetes-sigs/crdify", mentions="everettraven")
-
+# Tell wranglr to include both the kubernetes-sigs/crdify
+# items and the OpenShift Bugs Jira tickets in the rendered output
+wranglr.render(crdify_open_items, openshift_kubeapiserver_bugs)

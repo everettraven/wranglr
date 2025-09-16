@@ -3,13 +3,12 @@ package printers
 import (
 	"encoding/json"
 	"fmt"
-
-	"github.com/everettraven/synkr/pkg/plugins"
+	"go.starlark.net/starlark"
 )
 
 type JSON struct{}
 
-func (j *JSON) Print(results ...plugins.SourceEntry) error {
+func (j *JSON) Print(results ...starlark.Value) error {
 	outBytes := []byte{}
 	for _, result := range results {
 		out, err := json.Marshal(result)
