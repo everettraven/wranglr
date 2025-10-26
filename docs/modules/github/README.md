@@ -78,5 +78,4 @@ item.priority # A priority score of the issue. wranglr will sort items in a give
 item.group # Represents a logical "group" this item belongs to. Useful for grouping things into subsets of issues like "Feature X", "SIG Auth", etc.
 ```
 
-NOTE: datetime values are formatted as RFC-3339 datetime values. Example: `2006-01-02T15:04:05Z07:00`
-
+NOTE: datetime values are in the format `2006-01-02 15:04:05 -0700 MST`.
