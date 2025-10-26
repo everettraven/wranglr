@@ -7,7 +7,7 @@ like GitHub and Jira (and more in the future).
 It leverages Starlark to provide a scriptable interface so you can choose what
 is important, create your own status automation, and prioritize work your way.
 
-![demo](docs/assets/demo.gif)
+![demo](assets/demo.gif)
 
 ## Why `wranglr`?
 
