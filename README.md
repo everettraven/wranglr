@@ -1,4 +1,4 @@
-# wranlgr
+# wranglr
 
 `wranglr` is a CLI tool built to reduce the overhead associated with "ticket sprawl"
 by creating a unified view of issues, pull requests and tickets across systems
